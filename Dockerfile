@@ -34,15 +34,20 @@ RUN pip install playwright && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the startup script and make it executable
+COPY startup.sh .
+RUN chmod +x /app/startup.sh
+
 # Copy the rest of the application
 COPY . .
 
 # Set environment variables if needed
 ENV PYTHONPATH=/app
-ENV PORT=8000
+# Don't hardcode PORT - Cloud Run will provide this
 
-# Expose the port the app runs on
+# Port 8080 is just a default for documentation
+# The actual port will be read from the PORT environment variable
 EXPOSE 8080
 
-# Command to run your application
-CMD ["python", "src/e_commerce_agent/main.py"]
+# Command to run the startup script
+CMD ["/app/startup.sh"]
