@@ -892,4 +892,4 @@ class PriceScraper:
             "price": product_details.get("price"),
             "reasons": reasons
         } 
-        }
+        
