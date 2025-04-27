@@ -24,18 +24,18 @@ def main():
             port_str = os.environ.get("PORT")
             logger.info(f"PORT environment variable is: '{port_str}'")
             if port_str is None:
-                logger.warning("PORT environment variable not set, defaulting to 8000")
-                port = 8000
+                logger.warning("PORT environment variable not set, defaulting to 8080 for GCP compatibility")
+                port = 8080
             else:
                 try:
                     port = int(port_str)
                     logger.info(f"Using PORT: {port}")
                 except ValueError:
-                    logger.error(f"Failed to parse PORT environment variable: '{port_str}', using default 8000")
-                    port = 8000
+                    logger.error(f"Failed to parse PORT environment variable: '{port_str}', using default 8080")
+                    port = 8080
         except Exception as e:
             logger.error(f"Error processing PORT environment variable: {e}")
-            port = 8000
+            port = 8080
         
         # Always use 0.0.0.0 for container deployments
         host = "0.0.0.0"

@@ -43,10 +43,11 @@ COPY . .
 
 # Set environment variables if needed
 ENV PYTHONPATH=/app
-# Don't hardcode PORT - Cloud Run will provide this
+# PORT will be provided by Cloud Run/GCP at runtime
+# Default to 8080 if not provided (GCP standard port)
 
-# Port 8080 is just a default for documentation
-# The actual port will be read from the PORT environment variable
+# The EXPOSE directive is for documentation
+# Cloud Run will automatically route traffic to $PORT
 EXPOSE 8080
 
 # Command to run the startup script

@@ -330,8 +330,24 @@ def main():
     agent = ECommerceAgent("ECommerceAgent")
     server = DefaultServer(agent)
     
-    # Get port from environment variable or default to 8000
-    port = int(os.environ.get("PORT", 8000))
+    # Get port from environment variable or default to 8080 for GCP compatibility
+    try:
+        port_str = os.environ.get("PORT")
+        logger.info(f"PORT environment variable is: '{port_str}'")
+        if port_str is None:
+            logger.warning("PORT environment variable not set, defaulting to 8080 for GCP compatibility")
+            port = 8080
+        else:
+            try:
+                port = int(port_str)
+                logger.info(f"Using PORT: {port}")
+            except ValueError:
+                logger.error(f"Failed to parse PORT environment variable: '{port_str}', using default 8080")
+                port = 8080
+    except Exception as e:
+        logger.error(f"Error processing PORT environment variable: {e}")
+        port = 8080
+    
     host = "0.0.0.0"  # Important for container deployment
     
     logger.info(f"Starting server on {host}:{port}")

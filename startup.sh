@@ -6,7 +6,13 @@ echo "Listing directory contents:"
 ls -la
 echo "Listing application directory:"
 ls -la e_commerce_agent/
-echo "PORT environment variable: $PORT"
+
+# Check and report on PORT environment variable
+if [ -z "$PORT" ]; then
+    echo "WARNING: PORT environment variable is not set. The application will default to port 8080."
+else
+    echo "PORT environment variable is set to: $PORT"
+fi
 
 # Import env variables from .env if it exists
 if [ -f .env ]; then
@@ -27,11 +33,11 @@ echo "Python version: $(python --version)"
 if [ -f e_commerce_agent/src/e_commerce_agent/app.py ]; then
     echo "Found app.py, starting application using new entry point"
     # Explicitly start the app on the provided PORT
-    echo "Starting application on port $PORT"
+    echo "Starting application on port $PORT (or 8080 if PORT is not set)"
     python e_commerce_agent/src/e_commerce_agent/app.py
 else
     echo "app.py not found, falling back to e_commerce_agent.py"
     # Explicitly start the app on the provided PORT
-    echo "Starting application on port $PORT"
+    echo "Starting application on port $PORT (or 8080 if PORT is not set)"
     cd e_commerce_agent/
     python src/e_commerce_agent/e_commerce_agent.py 
