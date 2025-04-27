@@ -1,7 +1,10 @@
-# 🍎 Cart Advisor Agent
+# 🍎 CartAdvisor
 
-**Cart Advisor Agent** is an intelligent, sentient shopping assistant built for the [Sentient Chat Hackathon](https://bronzed-eagle-642.notion.site/SENTIENT-CHAT-HACK-1dcab589a8518007a3c7c775d9b350f5).  
-It analyzes product listings, checks competitor pricing across marketplaces, monitors historical price trends, and reasons in real-time whether it's the right time to buy — or if smarter alternatives exist.
+
+Online shopping often leaves customers uncertain — Is this the best deal? Should I wait? Could it be cheaper elsewhere?
+**CartAdvisor Agent**  solves this by acting as a sentient shopping companion that analyzes product features, monitors competitor prices across Amazon, Walmart, and Best Buy, and checks historical trends. It proactively advises whether to buy now or wait, helping users uncover better deals and save money. Designed for real-time conversations, it thinks beyond static facts — delivering smart, human-like shopping guidance instantly!
+
+**CartAdvisor Agent** is an intelligent, sentient shopping assistant built for the [Sentient Chat Hackathon](https://bronzed-eagle-642.notion.site/SENTIENT-CHAT-HACK-1dcab589a8518007a3c7c775d9b350f5).  
 
 ---
 
