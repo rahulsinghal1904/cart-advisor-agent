@@ -1,1 +1,7 @@
 .venv/
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
+e_commerce_agent/venv/
+e_commerce_agent/venv311/
+e_commerce_agent/.venv/
+e_commerce_agent/.env/
