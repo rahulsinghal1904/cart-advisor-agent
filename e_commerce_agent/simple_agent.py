@@ -223,7 +223,7 @@ class ModelProvider:
         self,
         api_key: str = None,
         base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-4"
+        model: str = "gpt-3.5"
     ):
         """Initialize model provider for queries."""
         # Model settings

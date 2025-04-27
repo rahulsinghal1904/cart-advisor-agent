@@ -36,7 +36,7 @@ class ECommerceAgent(AbstractAgent):
             raise ValueError("MODEL_API_KEY is not set or is a placeholder. Please provide a valid API key in the .env file.")
         
         model_base_url = os.getenv("MODEL_BASE_URL", "https://api.openai.com/v1")
-        model_name = os.getenv("MODEL_NAME", "gpt-4")
+        model_name = os.getenv("MODEL_NAME", "gpt-3.5-turbo")  # Updated to correct model name
         
         # Always use the real ModelProvider
         self._model_provider = ModelProvider(
@@ -313,4 +313,4 @@ if __name__ == "__main__":
     server = DefaultServer(agent)
     # Run the server
     logger.info("Starting ECommerceAgent server...")
-    server.run() 
+    server.run()
