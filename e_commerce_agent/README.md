@@ -1,4 +1,4 @@
-# E-Commerce Price Comparison Agent
+# CartAdvisor
 
 An intelligent agent that helps users determine if product prices represent good deals by analyzing prices across major e-commerce platforms.
 
