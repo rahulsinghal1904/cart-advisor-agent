@@ -5,8 +5,8 @@ import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
 from typing import Dict, List, Optional, Any, Tuple
-import random
 from playwright.async_api import async_playwright
+import secrets
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -422,11 +422,11 @@ class PriceScraper:
                 # Create a slightly different mock price
                 price_multiplier = 1.0
                 if store == "walmart":
-                    price_multiplier = 0.95 + random.uniform(-0.03, 0.03) # Usually a bit cheaper
+                    price_multiplier = 0.95 + secrets.SystemRandom().uniform(-0.03, 0.03) # Usually a bit cheaper
                 elif store == "bestbuy":
-                     price_multiplier = 1.05 + random.uniform(-0.03, 0.03) # Usually a bit more expensive
+                     price_multiplier = 1.05 + secrets.SystemRandom().uniform(-0.03, 0.03) # Usually a bit more expensive
                 else: # amazon
-                    price_multiplier = 1.0 + random.uniform(-0.03, 0.03) # Comparable
+                    price_multiplier = 1.0 + secrets.SystemRandom().uniform(-0.03, 0.03) # Comparable
                 
                 alt_price = None
                 if current_price:
