@@ -60,18 +60,30 @@ class PriceScraper:
                 # Set headers
                 await page.set_extra_http_headers(self.headers)
                 
-                # Navigate to the URL with increased timeout
-                try:
-                    await page.goto(url, wait_until='domcontentloaded', timeout=60000)
-                except Exception as e:
-                    logger.warning(f"Initial page load timeout, retrying with different wait strategy: {str(e)}")
-                    await page.goto(url, wait_until='load', timeout=60000)
+                # Navigate with multiple retries and timeout handling
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await page.goto(url, wait_until='domcontentloaded', timeout=60000)
+                        break
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            raise
+                        logger.warning(f"Attempt {attempt + 1} failed, retrying: {str(e)}")
+                        await page.wait_for_timeout(2000)  # Wait 2 seconds before retry
                 
-                # Wait for key elements with shorter timeouts
+                # More resilient element waiting
+                title = "Unknown Product"
                 try:
-                    await page.wait_for_selector('#productTitle', timeout=10000)
-                except Exception:
-                    logger.warning("Product title not found, continuing anyway")
+                    title_elem = await page.wait_for_selector('#productTitle', timeout=10000)
+                    title = (await title_elem.text_content()).strip()
+                except Exception as e:
+                    logger.warning(f"Could not find product title: {str(e)}")
+                    # Fallback to extracting title from page content
+                    page_content = await page.content()
+                    title_match = re.search(r'<title>(.*?)</title>', page_content)
+                    if title_match:
+                        title = title_match.group(1).split('Amazon.com: ')[-1].strip()
                 
                 # Extract product details
                 title = await page.text_content('#productTitle')
@@ -484,4 +496,4 @@ class PriceScraper:
             "confidence": confidence,
             "price": product_details.get("price"),
             "reasons": reasons
-        } 
+        }
