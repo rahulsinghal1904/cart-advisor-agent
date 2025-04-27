@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-openai
-requests
-beautifulsoup4
-playwright
