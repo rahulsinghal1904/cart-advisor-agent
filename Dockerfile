@@ -1,18 +1,38 @@
 FROM --platform=linux/amd64 python:3.11-slim
-FROM mcr.microsoft.com/playwright/python:v1.51.1-jammy
 
 # Set working directory
 WORKDIR /app
 
-# Install Playwright first (before requirements.txt)
-RUN pip install playwright
+# Install system dependencies for Playwright
+RUN apt-get update && \
+    apt-get install -y \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libasound2 \
+    libxshmfence1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Playwright and browsers
+RUN pip install playwright && \
+    python -m playwright install && \
+    playwright install-deps
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Playwright browsers
-RUN python -m playwright install
 
 # Copy the rest of the application
 COPY . .
