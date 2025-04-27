@@ -40,10 +40,13 @@ COPY . .
 
 # Set environment variables if needed
 ENV PYTHONPATH=/app
-ENV PORT=8080
+# Don't hardcode PORT - Cloud Run will provide this
 
-# Expose the port the app runs on
+# Port 8080 is just a default for documentation
+# The actual port will be read from the PORT environment variable
 EXPOSE 8080
 
 # Command to run your application
 CMD ["python", "e_commerce_agent/src/e_commerce_agent/e_commerce_agent.py"]
+# Command to run the startup script
+CMD ["/app/startup.sh"]
