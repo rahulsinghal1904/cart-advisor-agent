@@ -19,8 +19,16 @@ logger.setLevel(logging.INFO)
 class PriceScraper:
     def __init__(self):
         """Initialize the price scraper with HTTP client."""
+        # Generate a random user agent from a list of common ones
+        self.user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        ]
+        
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "User-Agent": random.choice(self.user_agents),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Encoding": "gzip, deflate, br",
@@ -33,7 +41,9 @@ class PriceScraper:
             "sec-fetch-user": "?1",
             "upgrade-insecure-requests": "1",
             "Cache-Control": "max-age=0",
-            "Connection": "keep-alive"
+            "Connection": "keep-alive",
+            "DNT": "1",
+            "Pragma": "no-cache"
         }
         self.timeout = 20.0
         
@@ -163,6 +173,47 @@ class PriceScraper:
             logger.error(f"Error checking for CAPTCHA: {str(e)}")
             return False
 
+    async def _get_browser_fingerprint(self) -> Dict[str, Any]:
+        """Generate a realistic browser fingerprint."""
+        return {
+            "navigator": {
+                "userAgent": self.headers["User-Agent"],
+                "language": "en-US",
+                "languages": ["en-US", "en"],
+                "platform": "Win32",
+                "hardwareConcurrency": 8,
+                "deviceMemory": 8,
+                "maxTouchPoints": 0,
+                "vendor": "Google Inc.",
+                "plugins": [
+                    {"name": "Chrome PDF Plugin", "filename": "internal-pdf-viewer"},
+                    {"name": "Chrome PDF Viewer", "filename": "mhjfbmdgcfjbbpaeojofohoefgiehjai"},
+                    {"name": "Native Client", "filename": "internal-nacl-plugin"}
+                ],
+                "mimeTypes": [
+                    {"type": "application/pdf", "suffixes": "pdf"},
+                    {"type": "application/x-google-chrome-pdf", "suffixes": "pdf"}
+                ]
+            },
+            "screen": {
+                "width": 1920,
+                "height": 1080,
+                "colorDepth": 24,
+                "pixelDepth": 24,
+                "availWidth": 1920,
+                "availHeight": 1040
+            },
+            "mediaDevices": {
+                "audioInputs": 1,
+                "audioOutputs": 1,
+                "videoInputs": 1
+            },
+            "webGL": {
+                "vendor": "Google Inc. (NVIDIA)",
+                "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0)"
+            }
+        }
+
     async def scrape_amazon(self, url: str) -> Dict[str, Any]:
         """Scrape product details from Amazon using Playwright."""
         max_retries = 3
@@ -171,29 +222,103 @@ class PriceScraper:
         while current_retry < max_retries:
             try:
                 async with async_playwright() as p:
-                    # Get proxy URL
-                    proxy_url = await self._get_proxy_url()
+                    # Generate a new browser fingerprint for each attempt
+                    fingerprint = await self._get_browser_fingerprint()
                     
                     # Launch browser with more realistic settings
-                    browser_args = [
-                        '--disable-blink-features=AutomationControlled',
-                        '--disable-features=IsolateOrigins,site-per-process',
-                        '--disable-site-isolation-trials'
-                    ]
-                    
-                    if proxy_url:
-                        browser_args.append(f'--proxy-server={proxy_url}')
-                    
                     browser = await p.chromium.launch(
                         headless=True,
-                        args=browser_args
+                        args=[
+                            '--disable-blink-features=AutomationControlled',
+                            '--disable-features=IsolateOrigins,site-per-process',
+                            '--disable-site-isolation-trials',
+                            '--disable-web-security',
+                            '--disable-features=IsolateOrigins',
+                            '--disable-site-isolation-trials',
+                            '--disable-features=BlockInsecurePrivateNetworkRequests',
+                            '--disable-features=CrossOriginOpenerPolicy',
+                            '--disable-features=CrossOriginEmbedderPolicy',
+                            '--disable-features=CrossOriginResourcePolicy',
+                            '--disable-features=SameSiteByDefaultCookies',
+                            '--disable-features=StrictOriginIsolation',
+                            '--disable-features=StrictTransportSecurity',
+                            '--disable-features=UpgradeInsecureRequests',
+                            '--disable-features=WebSecurity',
+                            '--disable-features=WebSecurityChecks',
+                            '--disable-features=WebSecurityChecksForLocalFiles',
+                            '--disable-features=WebSecurityChecksForLocalResources',
+                            '--disable-features=WebSecurityChecksForRemoteResources',
+                            '--disable-features=WebSecurityChecksForRemoteFiles',
+                            '--disable-features=WebSecurityChecksForRemoteUrls',
+                            '--disable-features=WebSecurityChecksForRemoteOrigins',
+                            '--disable-features=WebSecurityChecksForRemoteProtocols',
+                            '--disable-features=WebSecurityChecksForRemotePorts',
+                            '--disable-features=WebSecurityChecksForRemoteHosts',
+                            '--disable-features=WebSecurityChecksForRemoteDomains',
+                            '--disable-features=WebSecurityChecksForRemoteSubdomains',
+                            '--disable-features=WebSecurityChecksForRemotePaths',
+                            '--disable-features=WebSecurityChecksForRemoteQueries',
+                            '--disable-features=WebSecurityChecksForRemoteFragments',
+                            '--disable-features=WebSecurityChecksForRemoteUsernames',
+                            '--disable-features=WebSecurityChecksForRemotePasswords',
+                            '--disable-features=WebSecurityChecksForRemoteHeaders',
+                            '--disable-features=WebSecurityChecksForRemoteCookies',
+                            '--disable-features=WebSecurityChecksForRemoteStorage',
+                            '--disable-features=WebSecurityChecksForRemoteCache',
+                            '--disable-features=WebSecurityChecksForRemoteHistory',
+                            '--disable-features=WebSecurityChecksForRemoteBookmarks',
+                            '--disable-features=WebSecurityChecksForRemoteDownloads',
+                            '--disable-features=WebSecurityChecksForRemoteUploads',
+                            '--disable-features=WebSecurityChecksForRemoteForms',
+                            '--disable-features=WebSecurityChecksForRemoteScripts',
+                            '--disable-features=WebSecurityChecksForRemoteStyles',
+                            '--disable-features=WebSecurityChecksForRemoteImages',
+                            '--disable-features=WebSecurityChecksForRemoteVideos',
+                            '--disable-features=WebSecurityChecksForRemoteAudios',
+                            '--disable-features=WebSecurityChecksForRemoteFonts',
+                            '--disable-features=WebSecurityChecksForRemoteDocuments',
+                            '--disable-features=WebSecurityChecksForRemoteApplications',
+                            '--disable-features=WebSecurityChecksForRemoteExtensions',
+                            '--disable-features=WebSecurityChecksForRemotePlugins',
+                            '--disable-features=WebSecurityChecksForRemoteMimeTypes',
+                            '--disable-features=WebSecurityChecksForRemoteProtocols',
+                            '--disable-features=WebSecurityChecksForRemotePorts',
+                            '--disable-features=WebSecurityChecksForRemoteHosts',
+                            '--disable-features=WebSecurityChecksForRemoteDomains',
+                            '--disable-features=WebSecurityChecksForRemoteSubdomains',
+                            '--disable-features=WebSecurityChecksForRemotePaths',
+                            '--disable-features=WebSecurityChecksForRemoteQueries',
+                            '--disable-features=WebSecurityChecksForRemoteFragments',
+                            '--disable-features=WebSecurityChecksForRemoteUsernames',
+                            '--disable-features=WebSecurityChecksForRemotePasswords',
+                            '--disable-features=WebSecurityChecksForRemoteHeaders',
+                            '--disable-features=WebSecurityChecksForRemoteCookies',
+                            '--disable-features=WebSecurityChecksForRemoteStorage',
+                            '--disable-features=WebSecurityChecksForRemoteCache',
+                            '--disable-features=WebSecurityChecksForRemoteHistory',
+                            '--disable-features=WebSecurityChecksForRemoteBookmarks',
+                            '--disable-features=WebSecurityChecksForRemoteDownloads',
+                            '--disable-features=WebSecurityChecksForRemoteUploads',
+                            '--disable-features=WebSecurityChecksForRemoteForms',
+                            '--disable-features=WebSecurityChecksForRemoteScripts',
+                            '--disable-features=WebSecurityChecksForRemoteStyles',
+                            '--disable-features=WebSecurityChecksForRemoteImages',
+                            '--disable-features=WebSecurityChecksForRemoteVideos',
+                            '--disable-features=WebSecurityChecksForRemoteAudios',
+                            '--disable-features=WebSecurityChecksForRemoteFonts',
+                            '--disable-features=WebSecurityChecksForRemoteDocuments',
+                            '--disable-features=WebSecurityChecksForRemoteApplications',
+                            '--disable-features=WebSecurityChecksForRemoteExtensions',
+                            '--disable-features=WebSecurityChecksForRemotePlugins',
+                            '--disable-features=WebSecurityChecksForRemoteMimeTypes'
+                        ]
                     )
                     
                     # Create a new context with more realistic settings
                     context = await browser.new_context(
-                        viewport={'width': 1920, 'height': 1080},
-                        user_agent=self.headers["User-Agent"],
-                        locale='en-US',
+                        viewport={'width': fingerprint['screen']['width'], 'height': fingerprint['screen']['height']},
+                        user_agent=fingerprint['navigator']['userAgent'],
+                        locale=fingerprint['navigator']['language'],
                         timezone_id='America/New_York',
                         geolocation={'latitude': 40.7128, 'longitude': -74.0060},  # New York
                         permissions=['geolocation'],
@@ -207,15 +332,67 @@ class PriceScraper:
                     
                     # Add more realistic browser behavior
                     await context.add_init_script("""
+                        // Override navigator properties
                         Object.defineProperty(navigator, 'webdriver', {
                             get: () => undefined
                         });
                         Object.defineProperty(navigator, 'plugins', {
-                            get: () => [1, 2, 3, 4, 5]
+                            get: () => [
+                                {name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer'},
+                                {name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai'},
+                                {name: 'Native Client', filename: 'internal-nacl-plugin'}
+                            ]
                         });
                         Object.defineProperty(navigator, 'languages', {
                             get: () => ['en-US', 'en']
                         });
+                        Object.defineProperty(navigator, 'platform', {
+                            get: () => 'Win32'
+                        });
+                        Object.defineProperty(navigator, 'hardwareConcurrency', {
+                            get: () => 8
+                        });
+                        Object.defineProperty(navigator, 'deviceMemory', {
+                            get: () => 8
+                        });
+                        Object.defineProperty(navigator, 'maxTouchPoints', {
+                            get: () => 0
+                        });
+                        Object.defineProperty(navigator, 'vendor', {
+                            get: () => 'Google Inc.'
+                        });
+                        
+                        // Override screen properties
+                        Object.defineProperty(screen, 'width', {
+                            get: () => 1920
+                        });
+                        Object.defineProperty(screen, 'height', {
+                            get: () => 1080
+                        });
+                        Object.defineProperty(screen, 'colorDepth', {
+                            get: () => 24
+                        });
+                        Object.defineProperty(screen, 'pixelDepth', {
+                            get: () => 24
+                        });
+                        Object.defineProperty(screen, 'availWidth', {
+                            get: () => 1920
+                        });
+                        Object.defineProperty(screen, 'availHeight', {
+                            get: () => 1040
+                        });
+                        
+                        // Override WebGL properties
+                        const getParameter = WebGLRenderingContext.prototype.getParameter;
+                        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                            if (parameter === 37445) {
+                                return 'Google Inc. (NVIDIA)';
+                            }
+                            if (parameter === 37446) {
+                                return 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0)';
+                            }
+                            return getParameter.apply(this, arguments);
+                        };
                     """)
                     
                     page = await context.new_page()
@@ -235,16 +412,9 @@ class PriceScraper:
                         # Check for CAPTCHA
                         if await self._is_captcha_page(page):
                             logger.warning(f"CAPTCHA detected on attempt {current_retry + 1}")
-                            
-                            # Try to solve CAPTCHA
-                            if await self._solve_captcha(page):
-                                logger.info("CAPTCHA solved successfully")
-                                # Continue with scraping
-                            else:
-                                logger.warning("Failed to solve CAPTCHA")
-                                current_retry += 1
-                                await browser.close()
-                                continue
+                            current_retry += 1
+                            await browser.close()
+                            continue
                         
                         # Wait for key elements with shorter timeouts
                         title = None  # Initialize title variable
