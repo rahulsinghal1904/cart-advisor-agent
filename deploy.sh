@@ -3,7 +3,7 @@ set -e
 
 # Variables
 PROJECT_ID="cart-advisor"
-SERVICE_NAME="my-service-name"
+SERVICE_NAME="jwsong"
 REGION="us-central1"
 IMAGE_NAME="gcr.io/$PROJECT_ID/$SERVICE_NAME:latest"
 SERVICE_URL="https://$SERVICE_NAME-$PROJECT_ID.a.run.app"
@@ -15,7 +15,8 @@ FIREWORKS_API_KEY=$(grep "FIREWORKS_API_KEY" /Users/js/Personal/hackathon/sentie
 docker buildx build --platform linux/amd64 -t $IMAGE_NAME .
 
 # Push to Container Registry
-gcloud auth configure-docker -q
+gcloud auth configure-docker -q# ... existing code ...
+source $HOME/google-cloud-sdk/path.bash.inc
 docker push $IMAGE_NAME
 
 # Deploy to Cloud Run with proper configuration

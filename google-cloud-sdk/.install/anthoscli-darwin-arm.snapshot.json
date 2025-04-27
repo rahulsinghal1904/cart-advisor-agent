@@ -1,0 +1,42 @@
+{
+  "components": [
+    {
+      "data": {
+        "contents_checksum": "45245f60df9b3eb5f68367daeab12291601a6608718db5f0bc68c1f080e0707e",
+        "source": "",
+        "type": "tar"
+      },
+      "dependencies": [
+        "anthoscli"
+      ],
+      "details": {
+        "description": "The cli for Anthos infrastructure.",
+        "display_name": "anthoscli (Platform Specific)"
+      },
+      "id": "anthoscli-darwin-arm",
+      "is_configuration": false,
+      "is_hidden": true,
+      "is_required": false,
+      "platform": {
+        "architectures": [
+          "arm"
+        ],
+        "operating_systems": [
+          "MACOSX"
+        ]
+      },
+      "platform_required": false,
+      "version": {
+        "build_number": 20250210213649,
+        "version_string": "0.2.55"
+      }
+    }
+  ],
+  "revision": 20250418150427,
+  "schema_version": {
+    "no_update": false,
+    "url": "https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.tar.gz",
+    "version": 3
+  },
+  "version": "519.0.0"
+}

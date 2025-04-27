@@ -139,7 +139,11 @@ class ECommerceAgent(AbstractAgent):
                 error_message = product_details.get("message", "Unknown error")
                 logger.error(f"Failed to scrape {url}: {error_message}")
                 # Emit error for this product
-                await response_handler.emit_error("PRODUCT_ERROR", {"error_code": 404, "message": error_message})
+                await response_handler.emit_error(
+                    error_message=error_message,
+                    error_code=404,
+                    details={"product_url": url}
+                )
         
         # Generate final summary response
         final_response_stream = response_handler.create_text_stream("FINAL_RESPONSE")
@@ -325,13 +329,6 @@ Important guidelines:
 def main():
     agent = ECommerceAgent("ECommerceAgent")
     server = DefaultServer(agent)
-    
-    # Get port from environment variable or default to 8000
-    port = int(os.environ.get("PORT", 8000))
-    host = "0.0.0.0"  # Important for container deployment
-    
-    logger.info(f"Starting server on {host}:{port}")
-    server.start(host=host, port=port)
-
-if __name__ == "__main__":
-    main()
+    # Run the server
+    logger.info("Starting ECommerceAgent server...")
+    server.run() 
