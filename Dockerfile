@@ -1,11 +1,14 @@
 FROM --platform=linux/amd64 python:3.11-slim
 
+# Print Python version during build
+RUN python --version
+
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies for Playwright
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libnss3 \
     libnspr4 \
@@ -25,24 +28,22 @@ RUN apt-get update && \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright and browsers
-RUN pip install playwright && \
-    python -m playwright install && \
-    playwright install-deps
-
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    playwright install && \
+    playwright install-deps && \
+    playwright install chromium
 
 # Copy the rest of the application
 COPY . .
 
 # Set environment variables if needed
 ENV PYTHONPATH=/app
-ENV PORT=8000
+ENV PORT=8080
 
 # Expose the port the app runs on
 EXPOSE 8080
 
 # Command to run your application
-CMD ["python", "src/e_commerce_agent/main.py"]
+CMD ["python", "e_commerce_agent/src/e_commerce_agent/e_commerce_agent.py"]

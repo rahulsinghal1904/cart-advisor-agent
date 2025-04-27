@@ -2,7 +2,7 @@
 set -e
 
 # Variables
-PROJECT_ID="cart-advisor"
+PROJECT_ID="hip-spanner-458018-u5"
 SERVICE_NAME="jwsong"
 REGION="us-central1"
 IMAGE_NAME="gcr.io/$PROJECT_ID/$SERVICE_NAME:latest"
@@ -11,12 +11,14 @@ SERVICE_URL="https://$SERVICE_NAME-$PROJECT_ID.a.run.app"
 # Load API key from .env
 FIREWORKS_API_KEY=$(grep "FIREWORKS_API_KEY" /Users/js/Personal/hackathon/sentient-tbn-ecommerce/e_commerce_agent/.env | cut -d '=' -f2)
 
+# Clean up any existing virtualenv
+rm -rf e_commerce_agent/.venv
+
 # Build with platform specification
 docker buildx build --platform linux/amd64 -t $IMAGE_NAME .
 
 # Push to Container Registry
-gcloud auth configure-docker -q# ... existing code ...
-source $HOME/google-cloud-sdk/path.bash.inc
+gcloud auth configure-docker -q
 docker push $IMAGE_NAME
 
 # Deploy to Cloud Run with proper configuration
