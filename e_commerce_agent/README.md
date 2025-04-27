@@ -30,15 +30,11 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file based on `.env.example` and add your API keys:
-```
-cp .env.example .env
-# Edit the .env file with your API keys
-```
 
 ## Running the Agent
 
 ```
+cd e_commerce_agent
 python -m src.e_commerce_agent.e_commerce_agent
 ```
 
