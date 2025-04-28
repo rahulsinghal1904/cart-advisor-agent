@@ -64,12 +64,13 @@ class ECommerceAgent(AbstractAgent):
         urls = self._extract_urls(query.prompt)
         logger.info(f"Extracted URLs: {urls}")
         
+        # Create a status stream for progress updates
+        status_stream = response_handler.create_text_stream("STATUS_UPDATES")
+        
         if not urls:
             # No URLs found, ask the model to help
             logger.info("No URLs found, using model for general response.")
-            await response_handler.emit_text_block(
-                "INFO", "No product URLs detected. Analyzing your query to understand what you're looking for."
-            )
+            await status_stream.emit_chunk("No product URLs detected. Analyzing your query to understand what you're looking for.")
             
             # Generate a response based on user query without URLs
             final_response_stream = response_handler.create_text_stream("FINAL_RESPONSE")
@@ -83,67 +84,111 @@ class ECommerceAgent(AbstractAgent):
                 async for chunk in self._model_provider.query_stream(response_query):
                     await final_response_stream.emit_chunk(chunk)
                 await final_response_stream.complete()
+                await status_stream.complete()
             except Exception as e:
                 logger.error(f"Error generating general response: {e}")
-                await response_handler.emit_error(str(e), 500, {"type": "MODEL_ERROR"})
+                error_stream = response_handler.create_text_stream("ERROR")
+                await error_stream.emit_chunk(f"Error: {str(e)}")
+                await error_stream.complete()
             
             await response_handler.complete()
             return
         
         # Process each URL found in the query
-        await response_handler.emit_text_block(
-            "ANALYZING", f"Analyzing product information from {len(urls)} URL(s)..."
-        )
+        await status_stream.emit_chunk(f"Analyzing product information from {len(urls)} URL(s)...\n")
         
         all_product_details = []
         all_alternatives = []
         all_deal_analyses = []
         has_errors = False
         
+        # Stream for product details
+        product_details_stream = response_handler.create_text_stream("PRODUCT_DETAILS")
+        alternatives_stream = response_handler.create_text_stream("ALTERNATIVES")
+        deal_analysis_stream = response_handler.create_text_stream("DEAL_ANALYSIS")
+        
         # Process each URL
-        for url in urls:
+        for i, url in enumerate(urls):
             logger.info(f"Processing URL: {url}")
+            await status_stream.emit_chunk(f"Processing URL {i+1}/{len(urls)}: {url}\n")
+            
             # Fetch product details
             product_details = await self._price_scraper.get_product_details(url)
             all_product_details.append(product_details)
             
             if product_details.get("status") == "success":
                 logger.info(f"Successfully scraped details for {url}")
-                # Emit product details
-                await response_handler.emit_json(
-                    "PRODUCT_DETAILS", product_details
-                )
+                # Stream product details
+                title = product_details.get('title', 'Unknown Product')
+                price = product_details.get('price_text', 'Price unknown')
+                source = product_details.get('source', 'unknown')
+                
+                details_text = f"\n--- Product Details: {title} ---\n"
+                details_text += f"Source: {source.capitalize()}\n"
+                details_text += f"Price: {price}\n"
+                details_text += f"Rating: {product_details.get('rating', 'No ratings')}\n"
+                details_text += f"Availability: {product_details.get('availability', 'Unknown')}\n"
+                
+                if product_details.get("features"):
+                    details_text += "Features:\n"
+                    for feature in product_details.get("features", [])[:3]:
+                        details_text += f"• {feature}\n"
+                
+                await product_details_stream.emit_chunk(details_text)
                 
                 # Find alternatives
                 alternatives = await self._price_scraper.find_alternatives(product_details)
                 all_alternatives.append(alternatives)
                 logger.info(f"Found {len(alternatives)} alternatives for {url}")
                 
-                # Emit alternatives
+                # Stream alternatives
                 if alternatives:
-                    await response_handler.emit_json(
-                        "ALTERNATIVES", {"product_url": url, "alternatives": alternatives}
-                    )
+                    alt_text = f"\n--- Alternative Options for {title} ---\n"
+                    for alt in alternatives:
+                        alt_source = alt.get('source', 'Unknown').capitalize()
+                        alt_price = f"${alt.get('price')}" if alt.get('price') else "Price unknown"
+                        alt_reason = alt.get('reason', '')
+                        alt_text += f"{alt_source}: {alt_price} - {alt_reason}\n"
+                    
+                    await alternatives_stream.emit_chunk(alt_text)
                 
                 # Analyze if it's a good deal
                 deal_analysis = await self._price_scraper.analyze_deal(product_details, alternatives)
                 all_deal_analyses.append(deal_analysis)
                 logger.info(f"Deal analysis for {url}: {deal_analysis}")
                 
-                # Emit deal analysis
-                await response_handler.emit_json(
-                    "DEAL_ANALYSIS", {"product_url": url, "analysis": deal_analysis}
-                )
+                # Stream deal analysis
+                is_good_deal = deal_analysis.get('is_good_deal', False)
+                confidence = deal_analysis.get('confidence', 'unknown')
+                
+                analysis_text = f"\n--- Deal Analysis for {title} ---\n"
+                analysis_text += f"Verdict: {'This is a GOOD DEAL ✓' if is_good_deal else 'This is NOT the best deal ✗'}\n"
+                analysis_text += f"Confidence: {confidence.capitalize()}\n"
+                
+                if deal_analysis.get("reasons"):
+                    analysis_text += "Analysis:\n"
+                    for reason in deal_analysis.get("reasons", []):
+                        analysis_text += f"• {reason}\n"
+                
+                await deal_analysis_stream.emit_chunk(analysis_text)
+                
             else:
                 has_errors = True
                 error_message = product_details.get("message", "Unknown error")
                 logger.error(f"Failed to scrape {url}: {error_message}")
-                # Emit error for this product
-                await response_handler.emit_error(
-                    error_message=error_message,
-                    error_code=404,
-                    details={"product_url": url}
-                )
+                
+                # Stream error information
+                error_text = f"\n--- Error Processing {url} ---\n"
+                error_text += f"Error: {error_message}\n"
+                error_text += "Unable to analyze this product. Please try a different URL or check if the product page is accessible.\n"
+                
+                await product_details_stream.emit_chunk(error_text)
+        
+        # Complete the intermediate streams
+        await product_details_stream.complete()
+        await alternatives_stream.complete()
+        await deal_analysis_stream.complete()
+        await status_stream.emit_chunk("Analysis complete. Generating final recommendation...\n")
         
         # Generate final summary response
         final_response_stream = response_handler.create_text_stream("FINAL_RESPONSE")
@@ -160,13 +205,13 @@ class ECommerceAgent(AbstractAgent):
             logger.info("Finished streaming final response.")
         except Exception as e:
             logger.error(f"Error generating summary response: {e}")
-            # Try emitting an error if the stream hasn't started properly
-            try:
-                await final_response_stream.complete() # Need to complete the stream even on error
-                await response_handler.emit_error(str(e), 500, {"type": "MODEL_ERROR"})
-            except Exception as emit_err:
-                logger.error(f"Failed to emit error after model failure: {emit_err}")
+            # Stream an error message
+            error_stream = response_handler.create_text_stream("ERROR")
+            await error_stream.emit_chunk(f"Error generating final recommendation: {str(e)}")
+            await error_stream.complete()
         
+        # Complete all streams
+        await status_stream.complete()
         await response_handler.complete()
         logger.info("Assist method completed.")
 
@@ -326,8 +371,11 @@ Important guidelines:
         return "\n".join(formatted).strip()
 
 
-if __name__ == "__main__":
+def main():
+    """Main function to run the agent as a standalone server."""
     import uvicorn
+    from fastapi import FastAPI, Request, Response
+    from fastapi.middleware.cors import CORSMiddleware
 
     port = int(os.environ.get("PORT", 8080))
     logger.info(f"Starting ECommerceAgent server on 0.0.0.0:{port}...")
@@ -335,6 +383,30 @@ if __name__ == "__main__":
     agent = ECommerceAgent(name="E-Commerce Price Comparison Agent")
     server = DefaultServer(agent)
 
-    uvicorn.run(server._app, host="0.0.0.0", port=port)
+    # Add CORS middleware to the FastAPI app
+    app = server._app
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # For development; restrict in production
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Add middleware to ensure proper event stream headers
+    @app.middleware("http")
+    async def add_sse_headers(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path == "/assist":
+            response.headers["Content-Type"] = "text/event-stream"
+            response.headers["Cache-Control"] = "no-cache"
+            response.headers["Connection"] = "keep-alive"
+            response.headers["Transfer-Encoding"] = "chunked"
+        return response
+
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    main()
 
 

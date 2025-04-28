@@ -1,0 +1,3 @@
+[console_scripts]
+cuid2 = cuid2.cli:main
+
