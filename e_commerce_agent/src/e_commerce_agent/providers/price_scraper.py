@@ -213,6 +213,113 @@ class PriceScraper:
                 "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0)"
             }
         }
+    async def scrape_walmart(self, url: str) -> Dict[str, Any]:
+        """Scrape product details from Walmart robustly."""
+        max_retries = 3
+        retry = 0
+
+        while retry < max_retries:
+            try:
+                async with async_playwright() as p:
+                    browser = await p.chromium.launch(headless=True)
+                    page = await browser.new_page()
+                    await page.goto(url, timeout=60000)
+
+                    # Check for CAPTCHA
+                    page_text = await page.content()
+                    if any(phrase in page_text for phrase in ["Verify your identity", "robot check", "captcha"]):
+                        logger.warning(f"Walmart CAPTCHA detected on try {retry+1}")
+                        retry += 1
+                        await browser.close()
+                        continue
+
+                    title = await self.safe_text(page, 'h1.prod-ProductTitle') or await self.safe_text(page, 'h1[itemprop="name"]')
+                    price_major = await page.get_attribute('span.price-characteristic', 'content')
+                    price_minor = await page.get_attribute('span.price-mantissa', 'content')
+
+                    if price_major:
+                        price_text = f"{price_major}.{price_minor or '00'}"
+                        price = float(price_text)
+                    else:
+                        price = None
+
+                    await browser.close()
+
+                    return {
+                        "status": "success",
+                        "source": "walmart",
+                        "url": url,
+                        "title": title or "Unknown Product",
+                        "price_text": f"${price:.2f}" if price else "Price not found",
+                        "price": price,
+                    }
+
+            except Exception as e:
+                logger.error(f"Walmart scraping error: {e}")
+                retry += 1
+                continue
+
+        # Fallback if browser scraping fails
+        logger.warning("Walmart browser scraping failed. Falling back to HTTPX + BeautifulSoup...")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, headers=self.headers)
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                title_elem = soup.find('h1', {'class': 'prod-ProductTitle'})
+                price_elem = soup.find('span', {'class': 'price-characteristic'})
+
+                title = title_elem.text.strip() if title_elem else "Unknown Product"
+                price_text = price_elem['content'] if price_elem and 'content' in price_elem.attrs else None
+                price = float(price_text) if price_text else None
+
+                return {
+                    "status": "partial",
+                    "source": "walmart",
+                    "url": url,
+                    "title": title,
+                    "price_text": f"${price:.2f}" if price else "Price not found",
+                    "price": price,
+                }
+        except Exception as e:
+            logger.error(f"Walmart fallback scraping failed: {e}")
+            return {
+                "status": "error",
+                "source": "walmart",
+                "url": url,
+                "message": f"Failed to scrape Walmart product after retries and fallback: {e}"
+            }
+
+
+    async def scrape_bestbuy(self, url: str) -> Dict[str, Any]:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, timeout=60000)
+
+            title = await self.safe_text(page, '.sku-title h1')
+            price = await self.safe_text(page, '.priceView-hero-price span[aria-hidden="true"]')
+
+            await browser.close()
+
+            return {
+                "status": "success",
+                "source": "bestbuy",
+                "url": url,
+                "title": title or "Unknown Product",
+                "price_text": price or "Price not found",
+                "price": self._extract_price(price),
+            }
+    async def safe_text(self, page, selector: str) -> Optional[str]:
+        try:
+            elem = await page.query_selector(selector)
+            if elem:
+                text = await elem.text_content()
+                return text.strip()
+        except Exception:
+            pass
+        return None
 
     async def scrape_amazon(self, url: str) -> Dict[str, Any]:
         """Scrape product details from Amazon using Playwright."""
