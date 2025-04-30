@@ -817,7 +817,6 @@ class PriceScraper:
                 "url": url
             }
 
-<<<<<<< Updated upstream
     async def _is_captcha_page(self, page) -> bool:
         """Check if the current page is a CAPTCHA/verification page."""
         try:
@@ -987,22 +986,6 @@ class PriceScraper:
         """Scrape product details from Amazon using Playwright."""
         max_retries = 3
         current_retry = 0
-=======
-    async def scrape_walmart(self, url: str) -> Dict[str, Any]:
-        """
-        Scrape product details from Walmart using Playwright browser automation.
-        This approach is more effective against anti-scraping measures.
-        """
-        logger.info(f"Scraping Walmart product: {url}")
-        return await self._scrape_walmart_with_browser(url)
-    
-    async def _scrape_walmart_with_browser(self, url: str) -> Dict[str, Any]:
-        """
-        Use browser automation to scrape Walmart product data.
-        More reliable than HTTP requests for modern e-commerce sites.
-        """
-        user_agent = random.choice(self.user_agents)
->>>>>>> Stashed changes
         
         try:
             async with async_playwright() as p:
