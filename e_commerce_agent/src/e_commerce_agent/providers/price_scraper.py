@@ -817,6 +817,7 @@ class PriceScraper:
                 "url": url
             }
 
+<<<<<<< Updated upstream
     async def _is_captcha_page(self, page) -> bool:
         """Check if the current page is a CAPTCHA/verification page."""
         try:
@@ -986,6 +987,22 @@ class PriceScraper:
         """Scrape product details from Amazon using Playwright."""
         max_retries = 3
         current_retry = 0
+=======
+    async def scrape_walmart(self, url: str) -> Dict[str, Any]:
+        """
+        Scrape product details from Walmart using Playwright browser automation.
+        This approach is more effective against anti-scraping measures.
+        """
+        logger.info(f"Scraping Walmart product: {url}")
+        return await self._scrape_walmart_with_browser(url)
+    
+    async def _scrape_walmart_with_browser(self, url: str) -> Dict[str, Any]:
+        """
+        Use browser automation to scrape Walmart product data.
+        More reliable than HTTP requests for modern e-commerce sites.
+        """
+        user_agent = random.choice(self.user_agents)
+>>>>>>> Stashed changes
         
         try:
             async with async_playwright() as p:
@@ -1203,6 +1220,19 @@ class PriceScraper:
                                 }
                             }
                             
+                            // 5. Extract from any element with price in attribute
+                            if (!data.price_text) {
+                                const priceElements = document.querySelectorAll('[class*="price"],[id*="price"],[data-*="price"]');
+                                for (const el of priceElements) {
+                                    const text = el.textContent.trim();
+                                    if (text && text.includes('$') && /\$\s*\d+(\.\d{1,2})?/.test(text) && text.length < 15) {
+                                        data.price_text = text;
+                                        console.log("Found price in element with price in attribute: " + data.price_text);
+                                        break;
+                                    }
+                                }
+                            }
+                            
                             // Extract other data
                             const ratingSelectors = [
                                 '.stars-container',
@@ -1219,37 +1249,44 @@ class PriceScraper:
                             
                             // Extract availability
                             const availabilitySelectors = [
-                                '[data-automation="fulfillment-shipping-text"]',
-                                '.fulfillment-shipping-text'
+                                '.fulfillment-add-to-cart-button',
+                                '[data-track="add-to-cart"]',
+                                '[data-button-state="ADD_TO_CART"]',
+                                '.add-to-cart-button'
                             ];
                             
                             for (const selector of availabilitySelectors) {
                                 const elem = document.querySelector(selector);
-                                if (elem) {
-                                    data.availability = elem.textContent.trim();
+                                if (elem && !elem.disabled) {
+                                    data.availability = "In Stock";
                                     break;
                                 }
                             }
                             
-                            // Extract image URL
+                            if (!data.availability) {
+                                data.availability = "Out of Stock";
+                            }
+                            
+                            // Extract image
                             const imageSelectors = [
-                                'img.prod-hero-image',
-                                '[data-automation="image-main"]'
+                                '.primary-image',
+                                '[data-track="product-image"]',
+                                '.product-image'
                             ];
                             
                             for (const selector of imageSelectors) {
                                 const elem = document.querySelector(selector);
-                                if (elem) {
+                                if (elem && elem.src) {
                                     data.image_url = elem.src;
                                     break;
                                 }
                             }
                             
-                            // If we couldn't find image with specific selectors, try to find any large product image
+                            // If still no image, try to find any product image
                             if (!data.image_url) {
                                 const images = document.querySelectorAll('img');
                                 for (const img of images) {
-                                    if (img.src && (img.src.includes('large') || img.src.includes('hero'))) {
+                                    if (img.src && img.alt && data.title && img.alt.includes(data.title.substring(0, 10))) {
                                         data.image_url = img.src;
                                         break;
                                     }
@@ -1321,386 +1358,6 @@ class PriceScraper:
                 "message": f"Failed to scrape Walmart product: {str(e)}",
                 "url": url
             }
-    
-    async def scrape_bestbuy(self, url: str) -> Dict[str, Any]:
-        """
-        Scrape product details from Best Buy using Playwright browser automation.
-        This approach is more effective for dynamically loaded content.
-        """
-        logger.info(f"Scraping Best Buy product: {url}")
-        return await self._scrape_bestbuy_with_browser(url)
-    
-    async def _scrape_bestbuy_with_browser(self, url: str) -> Dict[str, Any]:
-        """
-        Use browser automation to scrape Best Buy product data.
-        More reliable than HTTP requests for modern e-commerce sites.
-        """
-        user_agent = random.choice(self.user_agents)
-        
-        try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    user_agent=user_agent,
-                    viewport={'width': 1920, 'height': 1080},
-                    locale='en-US'
-                )
-                
-                # Add stealth scripts to avoid detection
-                await context.add_init_script("""
-                    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                    if (window.chrome) { window.chrome.runtime = {}; }
-                    
-                    // Add common browser plugins
-                    if (!window.navigator.plugins) {
-                        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-                    }
-                    if (!window.navigator.languages) {
-                        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-                    }
-                """)
-                
-                page = await context.new_page()
-                
-                try:
-                    # Add cookies to help avoid detection
-                    await page.context.add_cookies([
-                        {
-                            "name": "session-id",
-                            "value": f"{random.randint(100000000, 999999999)}",
-                            "domain": ".bestbuy.com",
-                            "path": "/"
-                        },
-                        {
-                            "name": "session-token",
-                            "value": f"{random.randint(10000000, 99999999)}-{random.randint(1000000, 9999999)}",
-                            "domain": ".bestbuy.com",
-                            "path": "/"
-                        }
-                    ])
-                    
-                    logger.info(f"Navigating to Best Buy URL: {url}")
-                    
-                    # Set up network request interception to monitor API requests and extract price data
-                    prices_from_xhr = []
-                    
-                    async def handle_response(response):
-                        if "api.bestbuy.com" in response.url or "apollographql" in response.url:
-                            try:
-                                if response.status == 200:
-                                    resp_text = await response.text()
-                                    if "price" in resp_text.lower() and ('"price":' in resp_text or '"currentPrice":' in resp_text):
-                                        prices_from_xhr.append(resp_text)
-                                        logger.info(f"Found potential price data in API response: {response.url}")
-                            except Exception as e:
-                                logger.warning(f"Error processing API response: {str(e)}")
-                    
-                    # Monitor network responses
-                    page.on("response", handle_response)
-                    
-                    # Navigate to the page and wait for content to load
-                    await page.goto(url, wait_until='domcontentloaded', timeout=30000)
-                    
-                    # Wait for a core element to indicate the page has loaded
-                    try:
-                        await page.wait_for_selector('h1', timeout=5000)
-                    except Exception:
-                        logger.warning("Could not find h1 on Best Buy page, continuing anyway")
-                    
-                    # Wait longer for dynamic content
-                    await page.wait_for_timeout(5000)
-                    
-                    # Scroll down to trigger any lazy-loaded content
-                    await page.evaluate("window.scrollBy(0, 1000)")
-                    await page.wait_for_timeout(2000)
-                    
-                    # Check if we hit a captcha or security page
-                    page_url = page.url
-                    if "captcha" in page_url or "blocked" in page_url:
-                        logger.warning(f"Detected Best Buy anti-bot page: {page_url}")
-                        return {
-                            "status": "error",
-                            "source": "bestbuy",
-                            "message": "Encountered anti-bot protection",
-                            "url": url
-                        }
-                    
-                    # Extract price from Apollo GraphQL data in the page
-                    price_data_from_apollo = await page.evaluate("""
-                        () => {
-                            // Look for Apollo state in window object
-                            if (window.__APOLLO_STATE__) {
-                                return JSON.stringify(window.__APOLLO_STATE__);
-                            }
-                            
-                            // Look for price data in any script tag
-                            const scripts = document.querySelectorAll('script');
-                            let priceData = null;
-                            
-                            for (const script of scripts) {
-                                const content = script.textContent || script.innerText;
-                                if (content && content.includes('"price":') || content.includes('"currentPrice":')) {
-                                    return content;
-                                }
-                            }
-                            
-                            return null;
-                        }
-                    """)
-                    
-                    if price_data_from_apollo:
-                        prices_from_xhr.append(price_data_from_apollo)
-                    
-                    # Wait for Bestbuy specific price elements
-                    try:
-                        await page.wait_for_selector('[data-testid="customer-price"]', timeout=2000)
-                    except Exception:
-                        logger.info("Could not find price element with testid=customer-price")
-                        
-                    try:
-                        await page.wait_for_selector('.priceView-price', timeout=2000)
-                    except Exception:
-                        logger.info("Could not find .priceView-price element")
-                    
-                    # Extract product information using JavaScript
-                    product_data = await page.evaluate("""
-                        () => {
-                            const data = {};
-                            
-                            // Get title
-                            const titleSelectors = [
-                                '.sku-title h1',
-                                '[data-track="product-title"]',
-                                'h1'
-                            ];
-                            
-                            for (const selector of titleSelectors) {
-                                const elem = document.querySelector(selector);
-                                if (elem) {
-                                    data.title = elem.textContent.trim();
-                                    break;
-                                }
-                            }
-                            
-                            // PRICE EXTRACTION - AGGRESSIVE APPROACH
-                            
-                            // 1. Try all possible price selectors
-                            const priceSelectors = [
-                                '[data-testid="customer-price"]',
-                                '.priceView-customer-price span',
-                                '.priceView-hero-price span',
-                                '[data-track="product-price"]',
-                                '.priceView-price span',
-                                '.pricing-price',
-                                '.pricing-price__current-price',
-                                '.v-price-display'
-                            ];
-                            
-                            for (const selector of priceSelectors) {
-                                const elems = document.querySelectorAll(selector);
-                                for (const elem of elems) {
-                                    const text = elem.textContent.trim();
-                                    if (text && text.includes('$')) {
-                                        data.price_text = text;
-                                        console.log("Found price with selector: " + selector + " = " + text);
-                                        break;
-                                    }
-                                }
-                                if (data.price_text) break;
-                            }
-                            
-                            // 2. Extract from structured data
-                            if (!data.price_text) {
-                                const jsonLdElements = document.querySelectorAll('script[type="application/ld+json"]');
-                                for (const element of jsonLdElements) {
-                                    try {
-                                        const json = JSON.parse(element.textContent);
-                                        let price = null;
-                                        
-                                        if (json.offers && json.offers.price) {
-                                            price = json.offers.price;
-                                        } else if (json.price) {
-                                            price = json.price;
-                                        }
-                                        
-                                        if (price) {
-                                            data.price_text = '$' + price;
-                                            console.log("Found price in JSON-LD: " + data.price_text);
-                                            break;
-                                        }
-                                    } catch (e) {
-                                        // Ignore parsing errors
-                                    }
-                                }
-                            }
-                            
-                            // 3. Check global window objects that might contain price
-                            if (!data.price_text) {
-                                if (window.__INITIAL_STATE__ && window.__INITIAL_STATE__.product) {
-                                    const product = window.__INITIAL_STATE__.product;
-                                    if (product.price || product.currentPrice) {
-                                        const price = product.price || product.currentPrice;
-                                        data.price_text = '$' + price;
-                                        console.log("Found price in __INITIAL_STATE__: " + data.price_text);
-                                    }
-                                }
-                            }
-                            
-                            // 4. Scan for any element with price-like text
-                            if (!data.price_text) {
-                                const allSpans = document.querySelectorAll('span');
-                                const priceRegex = /\$\s*(\d+(\.\d{1,2})?)/;
-                                
-                                for (const span of allSpans) {
-                                    const text = span.textContent.trim();
-                                    if (text && text.length < 15) {  // Avoid long text that happens to contain prices
-                                        data.price_text = text;
-                                        console.log("Found price text in element: " + data.price_text);
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // 5. Extract from any element with price in attribute
-                            if (!data.price_text) {
-                                const priceElements = document.querySelectorAll('[class*="price"],[id*="price"],[data-*="price"]');
-                                for (const el of priceElements) {
-                                    const text = el.textContent.trim();
-                                    if (text && text.includes('$') && /\$\s*\d+(\.\d{1,2})?/.test(text) && text.length < 15) {
-                                        data.price_text = text;
-                                        console.log("Found price in element with price in attribute: " + data.price_text);
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // Extract other data
-                            const ratingSelectors = [
-                                '.customer-rating-average',
-                                '[itemprop="ratingValue"]',
-                                '.ugc-ratings-reviews'
-                            ];
-                            
-                            for (const selector of ratingSelectors) {
-                                const elem = document.querySelector(selector);
-                                if (elem) {
-                                    data.rating = elem.textContent.trim();
-                                    break;
-                                }
-                            }
-                            
-                            // Availability
-                            const availabilitySelectors = [
-                                '.fulfillment-add-to-cart-button',
-                                '[data-track="add-to-cart"]',
-                                '[data-button-state="ADD_TO_CART"]',
-                                '.add-to-cart-button'
-                            ];
-                            
-                            for (const selector of availabilitySelectors) {
-                                const elem = document.querySelector(selector);
-                                if (elem && !elem.disabled) {
-                                    data.availability = "In Stock";
-                                    break;
-                                }
-                            }
-                            
-                            if (!data.availability) {
-                                data.availability = "Out of Stock";
-                            }
-                            
-                            // Extract image
-                            const imageSelectors = [
-                                '.primary-image',
-                                '[data-track="product-image"]',
-                                '.product-image'
-                            ];
-                            
-                            for (const selector of imageSelectors) {
-                                const elem = document.querySelector(selector);
-                                if (elem && elem.src) {
-                                    data.image_url = elem.src;
-                                    break;
-                                }
-                            }
-                            
-                            // If still no image, try to find any product image
-                            if (!data.image_url) {
-                                const images = document.querySelectorAll('img');
-                                for (const img of images) {
-                                    if (img.src && img.alt && data.title && img.alt.includes(data.title.substring(0, 10))) {
-                                        data.image_url = img.src;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // Extract features
-                            const featureElems = document.querySelectorAll('.feature-list .feature-bullets') || 
-                                                document.querySelectorAll('.feature-list li');
-                            data.features = [];
-                            for (let i = 0; i < Math.min(featureElems.length, 5); i++) {
-                                data.features.push(featureElems[i].textContent.trim());
-                            }
-                            
-                            return data;
-                        }
-                    """)
-                    
-                    # Process XHR captured data to extract price
-                    price = None
-                    price_text = product_data.get('price_text')
-                    
-                    if not price_text and prices_from_xhr:
-                        for xhr_data in prices_from_xhr:
-                            try:
-                                # Try to parse JSON data
-                                if '"currentPrice":' in xhr_data or '"price":' in xhr_data:
-                                    # Simple regex pattern to extract price
-                                    price_pattern = re.compile(r'"(?:currentPrice|price)"\s*:\s*(\d+\.?\d*)')
-                                    match = price_pattern.search(xhr_data)
-                                    if match:
-                                        price_value = match.group(1)
-                                        price = float(price_value)
-                                        price_text = f"${price:.2f}"
-                                        logger.info(f"Extracted price from XHR data: {price_text}")
-                                        break
-                            except Exception as e:
-                                logger.warning(f"Error parsing XHR data for price: {str(e)}")
-                    
-                    # Clean price data
-                    if price_text and not price:
-                        price = self._extract_price(price_text)
-                    
-                    # Take a screenshot for debugging
-                    filename = f"debug_bestbuy_{int(time.time())}.png"
-                    await page.screenshot(path=filename)
-                    logger.info(f"Saved screenshot to {filename}")
-                    
-                    return {
-                        "status": "success",
-                        "source": "bestbuy",
-                        "url": url,
-                        "title": product_data.get('title', 'Unknown Product'),
-                        "price": price,
-                        "price_text": price_text if price_text else "Price not available",
-                        "rating": product_data.get('rating', 'No ratings'),
-                        "features": product_data.get('features', []),
-                        "availability": product_data.get('availability', 'Unknown'),
-                        "image_url": product_data.get('image_url')
-                    }
-                    
-                finally:
-                    await browser.close()
-                    
-        except Exception as e:
-            logger.error(f"Error in Best Buy browser scraper: {str(e)}")
-            return {
-                "status": "error",
-                "source": "bestbuy",
-                "message": f"Failed to scrape Best Buy product: {str(e)}",
-                "url": url
-            }
 
     def _extract_price(self, price_text: str) -> Optional[float]:
         """Extract numeric price from price text."""
@@ -1727,6 +1384,7 @@ class PriceScraper:
         source = product_details.get("source", "unknown")
         title = product_details.get("title", "Unknown Product")
         current_price = product_details.get("price")
+        current_rating = self._extract_rating_value(product_details.get("rating", "0"))
         
         # Mock data for demonstration
         alternatives = []
@@ -1738,7 +1396,7 @@ class PriceScraper:
             "bestbuy": f"https://www.bestbuy.com/site/searchpage.jsp?st={search_title}"
         }
 
-        # Simple logic: Check other stores with slightly varied mock prices
+        # Simple logic: Check other stores with slightly varied mock prices and ratings
         for store, search_url in mock_stores.items():
             if store != source and len(alternatives) < max_results:
                 # Create a slightly different mock price
@@ -1754,18 +1412,67 @@ class PriceScraper:
                 if current_price:
                      alt_price = round(current_price * price_multiplier, 2)
                 
-                is_better_deal = False
-                reason = "Price comparison"
+                # Generate mock ratings - slightly varied from original
+                alt_rating_value = min(5.0, max(1.0, current_rating + random.uniform(-0.5, 0.5)))
+                alt_rating = f"{alt_rating_value:.1f} out of 5 stars"
+                
+                # Generate mock availability status
+                availability_options = ["In Stock", "Few Left", "In Stock", "In Stock", "Ships in 2 days"]
+                alt_availability = random.choice(availability_options)
+                
+                # Generate mock review count
+                review_count = random.randint(10, 500)
+                
+                # Calculate a holistic deal score (0-100)
+                # This considers both price and non-price factors
+                price_score = 0
+                if current_price and alt_price:
+                    # Lower price is better (0-50 points)
+                    price_diff_pct = ((current_price - alt_price) / current_price) * 100
+                    price_score = min(50, max(0, 25 + price_diff_pct))
+                
+                # Rating score (0-30 points)
+                # Higher rating is better
+                rating_score = (alt_rating_value / 5.0) * 30
+                
+                # Reviews volume score (0-10 points)
+                # More reviews means more confidence in the rating
+                review_volume_score = min(10, (review_count / 100) * 10)
+                
+                # Availability score (0-10 points)
+                availability_score = 10 if alt_availability == "In Stock" else 5
+                
+                # Calculate total holistic score
+                holistic_score = price_score + rating_score + review_volume_score + availability_score
+                
+                # Determine if it's a better deal overall
+                is_better_deal = holistic_score > 50  # Threshold for being a "better deal"
+                
+                # Generate reason text based on multiple factors
+                price_reason = ""
                 if current_price and alt_price:
                     if alt_price < current_price:
-                        is_better_deal = True
                         diff_pct = abs(round(((alt_price - current_price) / current_price) * 100))
-                        reason = f"{diff_pct}% cheaper than {source.capitalize()}"
+                        price_reason = f"{diff_pct}% cheaper than {source.capitalize()}"
                     elif alt_price > current_price:
-                         diff_pct = abs(round(((alt_price - current_price) / current_price) * 100))
-                         reason = f"{diff_pct}% more expensive than {source.capitalize()}"
+                        diff_pct = abs(round(((alt_price - current_price) / current_price) * 100))
+                        price_reason = f"{diff_pct}% more expensive than {source.capitalize()}"
                     else:
-                        reason = f"Same price as {source.capitalize()}"
+                        price_reason = f"Same price as {source.capitalize()}"
+                
+                # Create combined reason text
+                reasons = []
+                if price_reason:
+                    reasons.append(price_reason)
+                if alt_rating_value > current_rating + 0.3:
+                    reasons.append(f"Higher customer rating ({alt_rating_value:.1f} vs {current_rating:.1f})")
+                if review_count > 100:
+                    reasons.append(f"Has {review_count} customer reviews")
+                if alt_availability == "In Stock":
+                    reasons.append("In stock and ready to ship")
+                
+                # Join all reasons
+                reason = " | ".join(reasons)
 
                 alternatives.append({
                     "source": store,
@@ -1773,14 +1480,30 @@ class PriceScraper:
                     "price": alt_price,
                     "url": search_url,
                     "is_better_deal": is_better_deal,
-                    "reason": reason
+                    "reason": reason,
+                    "rating": alt_rating,
+                    "review_count": review_count,
+                    "availability": alt_availability,
+                    "holistic_score": round(holistic_score, 1)
                 })
         
         return alternatives
 
+    def _extract_rating_value(self, rating_text: str) -> float:
+        """Extract numeric rating value from rating text."""
+        try:
+            # Try to extract a number from text like "4.5 out of 5 stars"
+            match = re.search(r'(\d+(\.\d+)?)', rating_text)
+            if match:
+                return float(match.group(1))
+            return 0.0
+        except (ValueError, TypeError, AttributeError):
+            return 0.0
+
     async def analyze_deal(self, product_details: Dict[str, Any], alternatives: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Analyze if the product is a good deal based on price and alternatives.
+        Analyze if the product is a good deal based on a holistic approach that considers
+        price, ratings, reviews, and availability.
         """
         if product_details.get("status") == "partial":
             return {
@@ -1788,8 +1511,8 @@ class PriceScraper:
                 "confidence": "low",
                 "reasons": [
                     "Limited information available due to access restrictions",
-                    "Unable to perform full price comparison",
-                    "Consider checking the product page directly for current pricing"
+                    "Unable to perform full comparison",
+                    "Consider checking the product page directly for current information"
                 ]
             }
             
@@ -1797,14 +1520,51 @@ class PriceScraper:
             return {
                 "is_good_deal": False,
                 "confidence": "low",
-                "reasons": ["Unable to determine price information accurately"]
+                "reasons": ["Unable to determine product information accurately"]
             }
         
-        # Check if there are better alternatives
+        # Check if there are better alternatives based on holistic score
         better_alternatives = [alt for alt in alternatives if alt.get("is_better_deal", False)]
         
-        # Determine if it's a good deal
-        is_good_deal = len(better_alternatives) == 0
+        # Calculate the product's own holistic score
+        current_price = product_details.get("price", 0)
+        current_rating = self._extract_rating_value(product_details.get("rating", "0"))
+        
+        # Mock review count for current product
+        current_review_count = random.randint(10, 500)
+        
+        # Mock availability for current product
+        availability_options = ["In Stock", "Few Left", "In Stock", "In Stock", "Ships in 2 days"]
+        current_availability = product_details.get("availability", random.choice(availability_options))
+        
+        # Base score is 50 since we're comparing against itself
+        price_score = 25  # Neutral price score
+        
+        # Rating score (0-30 points)
+        rating_score = (current_rating / 5.0) * 30
+        
+        # Reviews volume score (0-10 points)
+        review_volume_score = min(10, (current_review_count / 100) * 10)
+        
+        # Availability score (0-10 points)
+        availability_score = 10 if "in stock" in current_availability.lower() else 5
+        
+        # Calculate total holistic score for current product
+        current_holistic_score = price_score + rating_score + review_volume_score + availability_score
+        
+        # Add holistic score to the product details for reference
+        product_details["holistic_score"] = round(current_holistic_score, 1)
+        product_details["review_count"] = current_review_count
+        
+        # Sort alternatives by holistic score to find the best overall option
+        if alternatives:
+            alternatives.sort(key=lambda x: x.get('holistic_score', 0), reverse=True)
+        
+        # Determine if it's a good deal based on holistic comparison
+        is_good_deal = True
+        if better_alternatives:
+            best_alt = alternatives[0]  # Already sorted by holistic score
+            is_good_deal = current_holistic_score >= best_alt.get("holistic_score", 0)
         
         # Determine confidence level
         confidence = "high" if len(alternatives) >= 2 else "medium" if len(alternatives) == 1 else "low"
@@ -1812,21 +1572,55 @@ class PriceScraper:
         # Generate reasons
         reasons = []
         
-        if len(better_alternatives) > 0:
-            reasons.append(f"Found {len(better_alternatives)} better price(s) on alternative platforms")
-            # Sort by price to show the best deal first
-            better_alternatives.sort(key=lambda x: x.get('price', float('inf')))
-            for alt in better_alternatives[:2]: # Show top 2 reasons
-                reasons.append(f"- {alt.get('source', 'Alternative').capitalize()}: ${alt.get('price')} ({alt.get('reason', 'Better price')})")
+        # Add current product analysis
+        product_name = product_details.get("source", "").capitalize()
+        reasons.append(f"Analysis of {product_name} listing:")
+        if current_rating > 0:
+            reasons.append(f"- Rating: {current_rating:.1f}/5 stars from approximately {current_review_count} reviews")
+        if current_availability:
+            reasons.append(f"- Availability: {current_availability}")
+        
+        # Compare with alternatives
+        if better_alternatives:
+            reasons.append(f"\nFound {len(better_alternatives)} potentially better options across platforms:")
+            # Show top 2 alternatives
+            for alt in better_alternatives[:2]:
+                alt_source = alt.get('source', 'Alternative').capitalize()
+                alt_price = alt.get('price')
+                alt_rating = alt.get('rating', 'No rating')
+                alt_review_count = alt.get('review_count', 0)
+                alt_availability = alt.get('availability', 'Unknown')
+                
+                reasons.append(f"\n- {alt_source} alternative:")
+                reasons.append(f"  • Price: ${alt_price:.2f}")
+                if "rating" in alt_rating.lower():
+                    reasons.append(f"  • {alt_rating} ({alt_review_count} reviews)")
+                else:
+                    reasons.append(f"  • Rating: {alt_rating} ({alt_review_count} reviews)")
+                reasons.append(f"  • Availability: {alt_availability}")
+                reasons.append(f"  • Key advantages: {alt.get('reason', 'Alternative option')}")
         else:
-             reasons.append("This seems to be the best price among the compared retailers.")
+            if alternatives:
+                reasons.append("\nNo better alternatives found across the compared retailers.")
+            else:
+                reasons.append("\nNo alternatives found for comparison.")
 
-        # Add a note about price comparison context
-        reasons.append("Note: Price comparison is based on current listings found.")
+        # Add advice based on holistic analysis
+        if is_good_deal:
+            if alternatives:
+                reasons.append("\nOverall Assessment: This appears to be the best value when considering price, ratings, and availability.")
+            else:
+                reasons.append("\nOverall Assessment: This seems reasonable, but we couldn't find alternatives for a thorough comparison.")
+        else:
+            reasons.append("\nOverall Assessment: Consider the alternatives above which may offer better overall value.")
+
+        # Add a note about the comparison context
+        reasons.append("\nNote: This comparison considers price, customer ratings, review volume, and availability status.")
 
         return {
             "is_good_deal": is_good_deal,
             "confidence": confidence,
             "price": product_details.get("price"),
+            "holistic_score": round(current_holistic_score, 1),
             "reasons": reasons
         }

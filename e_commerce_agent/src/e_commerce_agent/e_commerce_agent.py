@@ -154,6 +154,17 @@ class ECommerceAgent(AbstractAgent):
                         alt_price = f"${alt.get('price')}" if alt.get('price') else "Price unknown"
                         alt_reason = alt.get('reason', '')
                         alt_text += f"{alt_source}: {alt_price} - {alt_reason}\n"
+                        
+                        # Add holistic information if available
+                        if alt.get('holistic_score'):
+                            alt_text += f"  • Holistic Score: {alt.get('holistic_score')}/100\n"
+                        if alt.get('rating'):
+                            alt_text += f"  • Rating: {alt.get('rating')}\n"
+                        if alt.get('review_count'):
+                            alt_text += f"  • Reviews: {alt.get('review_count')}\n"
+                        if alt.get('availability'):
+                            alt_text += f"  • Availability: {alt.get('availability')}\n"
+                        alt_text += "\n"
                     
                     await alternatives_stream.emit_chunk(alt_text)
                 
@@ -169,6 +180,10 @@ class ECommerceAgent(AbstractAgent):
                 analysis_text = f"\n--- Deal Analysis for {title} ---\n"
                 analysis_text += f"Verdict: {'This is a GOOD DEAL ✓' if is_good_deal else 'This is NOT the best deal ✗'}\n"
                 analysis_text += f"Confidence: {confidence.capitalize()}\n"
+                
+                # Add holistic score if available
+                if deal_analysis.get('holistic_score'):
+                    analysis_text += f"Holistic Score: {deal_analysis.get('holistic_score')}/100 (considers price, ratings, reviews, availability)\n"
                 
                 if deal_analysis.get("reasons"):
                     analysis_text += "Analysis:\n"
@@ -260,11 +275,18 @@ You are an expert e-commerce price comparison assistant. Your task is to provide
 
 User query: {user_query}
 
+When analyzing products, it is CRITICAL to use a HOLISTIC APPROACH rather than focusing solely on price:
+1. Price is important but should be just ONE FACTOR in your analysis
+2. Customer ratings and reviews are extremely important indicators of quality and satisfaction
+3. The number of reviews provides confidence in the rating score
+4. Product availability and shipping speed are important factors for time-sensitive purchases
+5. Feature differences between alternatives should be carefully considered
+
 Based on the following product information, alternatives, and deal analyses, create a comprehensive response that:
 1. Directly addresses the user's question about whether the product(s) are good deals
 2. Provides a detailed analysis of each product's value proposition
-3. Compares prices across different retailers
-4. Considers product features, ratings, and availability
+3. Compares products holistically across different retailers
+4. Uses a balanced approach that weighs price, ratings, reviews, and availability
 5. Makes specific recommendations
 
 Product Details:
@@ -281,15 +303,16 @@ In your response:
 2. For each product:
    - Summarize the key features and specifications
    - Compare the price with alternatives
-   - Consider the product's rating and reviews
-   - Evaluate the availability and condition (if applicable)
+   - EMPHASIZE the product's rating and reviews (higher ratings generally indicate better quality)
+   - Evaluate the availability and shipping options
 3. If better alternatives were found:
-   - Explain why they might be better options
-   - Compare specific features and prices
+   - Explain why they might be better options, considering BOTH price AND non-price factors
+   - Make it clear when a slightly higher price might be worth it for better reviews/ratings
+   - Highlight when a cheaper option might have drawbacks in terms of quality/ratings
 4. Provide specific recommendations:
    - Whether to buy now or wait for better deals
-   - Which retailer offers the best value
-   - Any potential concerns or considerations
+   - Which retailer offers the best OVERALL VALUE (not just the cheapest price)
+   - Any potential concerns or considerations about quality or service
 5. Be detailed but concise, focusing on the most relevant information for the user's decision
 
 Important guidelines:
@@ -347,6 +370,17 @@ Important guidelines:
                 for j, alt in enumerate(alternatives):
                     alt_price_str = f"${alt.get('price')}" if alt.get('price') else "N/A"
                     formatted.append(f"- {alt.get('source', 'Unknown').capitalize()}: {alt_price_str} ({alt.get('reason', 'Comparison')})")
+                    
+                    # Add additional holistic information if available
+                    if alt.get('holistic_score'):
+                        formatted.append(f"  * Holistic Score: {alt.get('holistic_score')}/100")
+                    if alt.get('rating'):
+                        formatted.append(f"  * Rating: {alt.get('rating')}")
+                    if alt.get('review_count'):
+                        formatted.append(f"  * Reviews: {alt.get('review_count')}")
+                    if alt.get('availability'):
+                        formatted.append(f"  * Availability: {alt.get('availability')}")
+                    
                 formatted.append("")
             # Optionally mention if no alternatives were found for a specific product if needed
             # else:
@@ -372,6 +406,10 @@ Important guidelines:
                 formatted.append(f"Deal Analysis for Product {i+1}:")
                 formatted.append(f"- Is it a good deal? {'Yes' if analysis.get('is_good_deal', False) else 'No'}")
                 formatted.append(f"- Confidence: {analysis.get('confidence', 'Unknown')}")
+                
+                # Add holistic score if available
+                if analysis.get('holistic_score'):
+                    formatted.append(f"- Holistic Score: {analysis.get('holistic_score')}/100")
                 
                 if analysis.get("reasons"):
                     formatted.append("- Summary:")
