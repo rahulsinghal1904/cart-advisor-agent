@@ -14,7 +14,7 @@ from sentient_agent_framework import (
 from sentient_agent_framework.interface.session import Session
 
 from .providers.model_provider import ModelProvider
-from .providers.price_scraper import PriceScraper
+from .providers.price_provider import PriceProvider
 # Removed mock provider import
 # from src.e_commerce_agent.providers.mock_provider import MockModelProvider 
 
@@ -46,8 +46,9 @@ class ECommerceAgent(AbstractAgent):
         )
         logger.info(f"Initialized ModelProvider with model: {model_name}")
 
-        # Set up price scraper
-        self._price_scraper = PriceScraper()
+        # Initialize the unified price provider that combines multiple data sources
+        self._price_provider = PriceProvider()
+        logger.info("Initialized PriceProvider with multi-tier API and scraping strategy")
 
 
     # Implement the assist method as required by the AbstractAgent class
@@ -112,23 +113,27 @@ class ECommerceAgent(AbstractAgent):
             logger.info(f"Processing URL: {url}")
             await status_stream.emit_chunk(f"Processing URL {i+1}/{len(urls)}: {url}\n")
             
-            # Fetch product details
-            product_details = await self._price_scraper.get_product_details(url)
+            # Fetch product details using the PriceProvider (with multi-source strategy)
+            product_details = await self._price_provider.get_product_details(url)
             all_product_details.append(product_details)
             
             if product_details.get("status") == "success":
-                logger.info(f"Successfully scraped details for {url}")
+                logger.info(f"Successfully retrieved details for {url} via {product_details.get('provider', 'unknown')}")
                 # Stream product details
                 title = product_details.get('title', 'Unknown Product')
                 price = product_details.get('price_text', 'Price unknown')
                 source = product_details.get('source', 'unknown')
+                provider = product_details.get('provider', 'unknown')
                 
                 details_text = f"\n--- Product Details: {title} ---\n"
                 details_text += f"Source: {source.capitalize()}\n"
                 details_text += f"Price: {price}\n"
                 details_text += f"Rating: {product_details.get('rating', 'No ratings')}\n"
                 details_text += f"Availability: {product_details.get('availability', 'Unknown')}\n"
+                details_text += f"Data Source: {provider.capitalize()}\n"
                 
+                if product_details.get("data_source"):
+                    details_text += f"- Method: {product_details.get('data_source', 'N/A')}\n"
                 if product_details.get("features"):
                     details_text += "Features:\n"
                     for feature in product_details.get("features", [])[:3]:
@@ -137,7 +142,7 @@ class ECommerceAgent(AbstractAgent):
                 await product_details_stream.emit_chunk(details_text)
                 
                 # Find alternatives
-                alternatives = await self._price_scraper.find_alternatives(product_details)
+                alternatives = await self._price_provider.find_alternatives(product_details)
                 all_alternatives.append(alternatives)
                 logger.info(f"Found {len(alternatives)} alternatives for {url}")
                 
@@ -153,7 +158,7 @@ class ECommerceAgent(AbstractAgent):
                     await alternatives_stream.emit_chunk(alt_text)
                 
                 # Analyze if it's a good deal
-                deal_analysis = await self._price_scraper.analyze_deal(product_details, alternatives)
+                deal_analysis = await self._price_provider.analyze_deal(product_details, alternatives)
                 all_deal_analyses.append(deal_analysis)
                 logger.info(f"Deal analysis for {url}: {deal_analysis}")
                 
@@ -175,11 +180,16 @@ class ECommerceAgent(AbstractAgent):
             else:
                 has_errors = True
                 error_message = product_details.get("message", "Unknown error")
-                logger.error(f"Failed to scrape {url}: {error_message}")
+                error_details = product_details.get("error_details", "")
+                logger.error(f"Failed to retrieve details for {url}: {error_message}")
+                if error_details:
+                    logger.error(f"Error details: {error_details}")
                 
                 # Stream error information
                 error_text = f"\n--- Error Processing {url} ---\n"
                 error_text += f"Error: {error_message}\n"
+                if error_details:
+                    error_text += f"Detail: {error_details}\n"
                 error_text += "Unable to analyze this product. Please try a different URL or check if the product page is accessible.\n"
                 
                 await product_details_stream.emit_chunk(error_text)
@@ -226,11 +236,11 @@ class ECommerceAgent(AbstractAgent):
         # Find all URLs in the text
         found_urls = url_pattern.findall(text)
         
-        # Filter to only include supported e-commerce sites
+        # Filter to only include supported e-commerce sites (expanded supported sites)
         supported_urls = []
         for url in found_urls:
             domain = urlparse(url).netloc.lower()
-            if any(site in domain for site in ["amazon.com", "walmart.com", "bestbuy.com"]):
+            if any(site in domain for site in ["amazon.com", "walmart.com", "bestbuy.com", "target.com", "ebay.com"]):
                 supported_urls.append(url)
         
         return supported_urls
@@ -309,12 +319,17 @@ Important guidelines:
                 formatted.append(f"- Price: {product.get('price_text', 'N/A')}")
                 formatted.append(f"- Rating: {product.get('rating', 'N/A')}")
                 formatted.append(f"- Availability: {product.get('availability', 'N/A')}")
+                formatted.append(f"- Data Source: {product.get('provider', 'N/A').capitalize()}")
+                if product.get("data_source"):
+                    formatted.append(f"- Method: {product.get('data_source', 'N/A')}")
                 if product.get("features"):
                     formatted.append("- Key features:")
                     for feature in product.get("features", [])[:3]: # Show top 3
                         formatted.append(f"  * {feature}")
             else:
                 formatted.append(f"- Error retrieving details: {product.get('message', 'Unknown error')}")
+                if product.get("error_details"):
+                    formatted.append(f"- Error details: {product.get('error_details', 'N/A')}")
             formatted.append("")
         
         return "\n".join(formatted).strip()
