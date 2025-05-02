@@ -6,11 +6,11 @@ import logging
 import re
 import json
 import httpx
-import random
 from typing import Dict, Any, Optional
 from urllib.parse import urlparse
 
 from .simple_scraper import SimpleScraper
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class MinimalStealthScraper:
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
                 headers = {
-                    "User-Agent": random.choice(self.user_agents),
+                    "User-Agent": secrets.choice(self.user_agents),
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.5"
                 }
