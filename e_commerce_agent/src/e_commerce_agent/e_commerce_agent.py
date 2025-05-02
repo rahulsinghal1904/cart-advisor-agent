@@ -123,6 +123,14 @@ class ECommerceAgent(AbstractAgent):
                 title = product_details.get('title', 'Unknown Product')
                 price = product_details.get('price_text', 'Price unknown')
                 source = product_details.get('source', 'unknown')
+                
+                # Ensure Amazon is always displayed correctly
+                if "amazon" in url.lower() and source.lower() in ["www", "unknown"]:
+                    source = "amazon"
+                    # Update the source in product_details for later use
+                    product_details["source"] = "amazon"
+                    logger.info(f"Fixed source from {source} to amazon for UI display")
+                    
                 provider = product_details.get('provider', 'unknown')
                 
                 details_text = f"\n--- Product Details: {title} ---\n"
@@ -149,10 +157,18 @@ class ECommerceAgent(AbstractAgent):
                 # Stream alternatives
                 if alternatives:
                     alt_text = f"\n--- Alternative Options for {title} ---\n"
+                        
                     for alt in alternatives:
-                        alt_source = alt.get('source', 'Unknown').capitalize()
+                        # Fix source display if it's www
+                        alt_source = alt.get('source', 'Unknown')
+                        if alt_source.lower() == 'www':
+                            alt_source = 'Amazon'
+                        else:
+                            alt_source = alt_source.capitalize()
+                            
                         alt_price = f"${alt.get('price')}" if alt.get('price') else "Price unknown"
                         alt_reason = alt.get('reason', '')
+                        
                         alt_text += f"{alt_source}: {alt_price} - {alt_reason}\n"
                         
                         # Add holistic information if available
@@ -167,6 +183,10 @@ class ECommerceAgent(AbstractAgent):
                         alt_text += "\n"
                     
                     await alternatives_stream.emit_chunk(alt_text)
+                    logger.info(f"Streamed {len(alternatives)} alternatives for {url}")
+                else:
+                    logger.warning(f"No alternatives found for {url} - check find_alternatives function")
+                    await alternatives_stream.emit_chunk("\n--- No Alternative Options Found ---\nCould not find comparable products at other retailers.\n")
                 
                 # Analyze if it's a good deal
                 deal_analysis = await self._price_provider.analyze_deal(product_details, alternatives)
@@ -174,15 +194,23 @@ class ECommerceAgent(AbstractAgent):
                 logger.info(f"Deal analysis for {url}: {deal_analysis}")
                 
                 # Stream deal analysis
-                is_good_deal = deal_analysis.get('is_good_deal', False)
+                is_good_deal = deal_analysis.get('is_good_deal')
                 confidence = deal_analysis.get('confidence', 'unknown')
                 
                 analysis_text = f"\n--- Deal Analysis for {title} ---\n"
-                analysis_text += f"Verdict: {'This is a GOOD DEAL ✓' if is_good_deal else 'This is NOT the best deal ✗'}\n"
+                
+                # Handle different verdict cases
+                if is_good_deal is None:
+                    analysis_text += f"Verdict: CANNOT DETERMINE ⚠️\n"
+                elif is_good_deal:
+                    analysis_text += f"Verdict: This is a GOOD DEAL ✓\n"
+                else:
+                    analysis_text += f"Verdict: This is NOT the best deal ✗\n"
+                    
                 analysis_text += f"Confidence: {confidence.capitalize()}\n"
                 
                 # Add holistic score if available
-                if deal_analysis.get('holistic_score'):
+                if deal_analysis.get('holistic_score', 0) > 0:
                     analysis_text += f"Holistic Score: {deal_analysis.get('holistic_score')}/100 (considers price, ratings, reviews, availability)\n"
                 
                 if deal_analysis.get("reasons"):
@@ -343,6 +371,7 @@ Important guidelines:
                 formatted.append(f"- Rating: {product.get('rating', 'N/A')}")
                 formatted.append(f"- Availability: {product.get('availability', 'N/A')}")
                 formatted.append(f"- Data Source: {product.get('provider', 'N/A').capitalize()}")
+                
                 if product.get("data_source"):
                     formatted.append(f"- Method: {product.get('data_source', 'N/A')}")
                 if product.get("features"):
@@ -367,6 +396,7 @@ Important guidelines:
         for i, alternatives in enumerate(alternatives_list):
             if alternatives:
                 formatted.append(f"Alternatives Compared for Product {i+1}:")
+                
                 for j, alt in enumerate(alternatives):
                     alt_price_str = f"${alt.get('price')}" if alt.get('price') else "N/A"
                     formatted.append(f"- {alt.get('source', 'Unknown').capitalize()}: {alt_price_str} ({alt.get('reason', 'Comparison')})")

@@ -600,13 +600,13 @@ class PriceAPIFetcher:
     async def _get_product_data_from_web_search(self, url: str) -> Dict[str, Any]:
         """
         Fallback method to get product data using web search.
-        Simulates a search for the product and extracts price information.
+        Extracts product information when other methods fail.
         
         Args:
             url: Product URL
             
         Returns:
-            Dict with product data
+            Dict with product data or error
         """
         # Check rate limits
         if not self._can_make_api_call("directwebsearch", max_calls_per_hour=20):
@@ -627,31 +627,41 @@ class PriceAPIFetcher:
             if not search_term:
                 return {"status": "error", "message": "Couldn't extract search term from URL"}
             
-            # Enhance search term with domain
+            # CRITICAL FIX: Always use proper source identification
             domain = self._extract_domain(url)
-            source = domain.split('.')[0] if domain else 'unknown'
-            search_term = f"{search_term} {source} price"
+            source = "unknown"
+            if "amazon" in domain or "amazon" in url.lower():
+                source = "amazon"
+            elif "walmart" in domain:
+                source = "walmart"
+            elif "bestbuy" in domain:
+                source = "bestbuy"
+            elif "target" in domain:
+                source = "target"
+            elif "ebay" in domain:
+                source = "ebay"
+            elif "costco" in domain:
+                source = "costco"
+                
+            logger.info(f"Web search source identification: URL={url}, Domain={domain}, Identified Source={source}")
             
             # Record API call
             self._record_api_call("directwebsearch")
             
-            # In a real implementation, you would make an actual search request
-            # For demonstration, we'll simulate a basic web scraping of search results
-            async with httpx.AsyncClient() as client:
-                # Perform simulated web search
-                title = search_term.replace(' price', '')
-                price = self._generate_mock_price()
-                
-                return {
-                    "status": "success",
-                    "source": source,
-                    "url": url,
-                    "title": title.title(),  # Capitalize words
-                    "price": price,
-                    "price_text": f"${price}",
-                    "data_source": "web_search",
-                    "note": "Price estimated from web search results"
-                }
+            # For web search, return product info based on URL without price estimation
+            title = search_term.replace(' price', '').replace(source, '').strip().title()
+            
+            return {
+                "status": "success",
+                "source": source,  # Use properly identified source
+                "url": url,
+                "title": title,  # Capitalize words
+                "price": None,  # No price data available
+                "price_text": "Price unavailable",
+                "rating": None,
+                "availability": None,
+                "data_source": "web_search"
+            }
                 
         except Exception as e:
             logger.error(f"Error in web search data fetcher: {str(e)}")
@@ -661,10 +671,25 @@ class PriceAPIFetcher:
         """Extract domain from URL."""
         try:
             parsed_url = urlparse(url)
-            domain = parsed_url.netloc
+            domain = parsed_url.netloc.lower()
+            
+            # CRITICAL FIX: Identify common e-commerce domains more robustly
+            if "amazon" in domain:
+                return "amazon"
+            elif "walmart" in domain:
+                return "walmart"
+            elif "bestbuy" in domain:
+                return "bestbuy"
+            elif "target" in domain:
+                return "target"
+            elif "ebay" in domain:
+                return "ebay"
+            elif "costco" in domain:
+                return "costco"
+                
             return domain
         except Exception:
-            return ""
+            return "unknown"
     
     def _extract_asin_from_url(self, url: str) -> Optional[str]:
         """Extract ASIN from Amazon URL."""
@@ -739,8 +764,9 @@ class PriceAPIFetcher:
         self.api_call_timestamps.setdefault(api_name, []).append(now)
     
     def _generate_mock_price(self) -> float:
-        """Generate a mock price for simulation purposes only."""
-        return round(random.uniform(9.99, 299.99), 2)
+        """Disabled method - no price generation."""
+        logger.error("Mock price generation function called but is disabled")
+        return None
     
     def cleanup(self):
         """Clean up resources."""
