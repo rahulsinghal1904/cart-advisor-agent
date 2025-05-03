@@ -326,11 +326,13 @@ Important guidelines:
         return "\n".join(formatted).strip()
 
 
-if __name__ == "__main__":
-    # Create an instance of the ECommerceAgent
-    agent = ECommerceAgent(name="E-Commerce Price Comparison Agent")
-    # Create a server to handle requests to the agent
+def main():
+    agent = ECommerceAgent("ECommerceAgent")
     server = DefaultServer(agent)
-    # Run the server
-    logger.info("Starting ECommerceAgent server...")
-    server.run() 
+    # Get port from environment variable or default to 8080
+    port = int(os.getenv("PORT", "8080"))
+    logger.info(f"Starting ECommerceAgent server on port {port}...")
+    server.run(host="0.0.0.0", port=port)
+    
+if __name__ == "__main__":
+    main()

@@ -105,7 +105,7 @@ To run the agent as a web server that can handle HTTP requests:
    }'
    ```
 
-eg query: curl -N --location 'http://0.0.0.0:8000/assist' \
+eg query: curl -N --location 'https://sentientchatcart-841319062127.us-central1.run.app/assist' \
 --header 'Content-Type: application/json' \
 --data-raw '{ "query": { "id": "01HPCNFQQ8KBFB6ZJVX7Y4BZJG", "prompt": "Is this a good deal? https://www.amazon.com/New-Balance-Casual-Comfort-Trainer/dp/B07B421VFD/ref=asc_df_B07B421VFD?mcid=1a773dd6b9163e2cac24ee3ca619244a&hvociid=12394447866350848685-B07B421VFD-&hvexpln=73&tag=hyprod-20&linkCode=df0&hvadid=721245378154&hvpos=&hvnetw=g&hvrand=12394447866350848685&hvpone=&hvptwo=&hvqmt=&hvdev=c&hvdvcmdl=&hvlocint=&hvlocphy=9022196&hvtargid=pla-2281435181738&psc=1" }, "session" : { "processor_id": "curl_real_test_1", "activity_id": "01HPCNFRGCVZZX86JZA2A7J8E9", "request_id": "01HPCNFS0P7G5M3YXE8K9D0N1T", "interactions": [] } }'
 
@@ -206,7 +206,7 @@ The price scraper in `providers/price_scraper.py` can be extended to:
 Here's how to call the agent's API endpoint:
 
 ```bash
-curl -N --location 'http://0.0.0.0:8000/assist' \
+curl -N --location 'https://sentientchatcart-841319062127.us-central1.run.app/assist' \
 --header 'Content-Type: application/json' \
 --data '{
     "query": {
