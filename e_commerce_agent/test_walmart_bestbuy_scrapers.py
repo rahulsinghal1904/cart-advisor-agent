@@ -5,10 +5,10 @@ import os
 import logging
 import httpx
 from bs4 import BeautifulSoup
-import random
 import re
 from typing import Dict, Any, Optional
 import time
+import secrets
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class SimpleScraper:
         ]
         
         self.headers = {
-            "User-Agent": random.choice(self.user_agents),
+            "User-Agent": secrets.choice(self.user_agents),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Encoding": "gzip, deflate, br",
@@ -42,9 +42,9 @@ class SimpleScraper:
         
         self.cookies = {
             # Common cookies that might help bypass bot detection
-            "session-id": f"{random.randint(100000000, 999999999)}",
-            "session-token": f"{random.randint(10000000, 99999999)}-{random.randint(1000000, 9999999)}",
-            "csm-hit": f"tb:{random.randint(100000000000, 999999999999)}+s-{random.randint(100000000000, 999999999999)}|{random.randint(10000000000, 99999999999)}"
+            "session-id": f"{secrets.SystemRandom().randint(100000000, 999999999)}",
+            "session-token": f"{secrets.SystemRandom().randint(10000000, 99999999)}-{secrets.SystemRandom().randint(1000000, 9999999)}",
+            "csm-hit": f"tb:{secrets.SystemRandom().randint(100000000000, 999999999999)}+s-{secrets.SystemRandom().randint(100000000000, 999999999999)}|{secrets.SystemRandom().randint(10000000000, 99999999999)}"
         }
         
         self.timeout = 30.0
@@ -64,7 +64,7 @@ class SimpleScraper:
         try:
             # Randomize user agent to avoid detection
             headers = self.headers.copy()
-            headers["User-Agent"] = random.choice(self.user_agents)
+            headers["User-Agent"] = secrets.choice(self.user_agents)
             
             # Add Walmart-specific headers
             headers["Referer"] = "https://www.walmart.com/"
@@ -207,7 +207,7 @@ class SimpleScraper:
         try:
             # Randomize user agent to avoid detection
             headers = self.headers.copy()
-            headers["User-Agent"] = random.choice(self.user_agents)
+            headers["User-Agent"] = secrets.choice(self.user_agents)
             
             # Add Best Buy-specific headers
             headers["Referer"] = "https://www.bestbuy.com/"
