@@ -10,11 +10,11 @@ import os
 import sys
 import json
 import re
-import random
 import tempfile
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, Page
+import secrets
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +36,7 @@ class PriceExtractor:
     
     async def extract_price(self, url: str) -> dict:
         """Extract price from a product URL."""
-        user_agent = random.choice(self.desktop_agents)
+        user_agent = secrets.choice(self.desktop_agents)
         
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
