@@ -310,6 +310,13 @@ When analyzing products, it is CRITICAL to use a HOLISTIC APPROACH rather than f
 4. Product availability and shipping speed are important factors for time-sensitive purchases
 5. Feature differences between alternatives should be carefully considered
 
+IMPORTANT: When price information is missing for a product, you should:
+1. Focus your analysis on available non-price factors (ratings, reviews, availability)
+2. Make comparisons based on overall product quality and reputation 
+3. Still provide valuable insights and recommendations using the available data
+4. Clearly indicate that price comparison was not possible but other factors were considered
+5. Compare ratings and reviews across different retailers if available
+
 Based on the following product information, alternatives, and deal analyses, create a comprehensive response that:
 1. Directly addresses the user's question about whether the product(s) are good deals
 2. Provides a detailed analysis of each product's value proposition
@@ -330,13 +337,14 @@ In your response:
 1. Start with a clear, direct answer about whether the product is a good deal
 2. For each product:
    - Summarize the key features and specifications
-   - Compare the price with alternatives
+   - Compare the price with alternatives (if price data is available)
    - EMPHASIZE the product's rating and reviews (higher ratings generally indicate better quality)
    - Evaluate the availability and shipping options
 3. If better alternatives were found:
    - Explain why they might be better options, considering BOTH price AND non-price factors
    - Make it clear when a slightly higher price might be worth it for better reviews/ratings
    - Highlight when a cheaper option might have drawbacks in terms of quality/ratings
+   - If price is missing but alternatives have better ratings/availability, emphasize those advantages
 4. Provide specific recommendations:
    - Whether to buy now or wait for better deals
    - Which retailer offers the best OVERALL VALUE (not just the cheapest price)
@@ -397,9 +405,25 @@ Important guidelines:
             if alternatives:
                 formatted.append(f"Alternatives Compared for Product {i+1}:")
                 
+                # Check if all alternatives lack price data
+                price_missing = all(alt.get('price') is None for alt in alternatives)
+                
+                # Add context about the comparison basis
+                if price_missing:
+                    formatted.append("(Comparison based primarily on ratings, availability, and retailer reputation since price data is missing)")
+                
                 for j, alt in enumerate(alternatives):
-                    alt_price_str = f"${alt.get('price')}" if alt.get('price') else "N/A"
-                    formatted.append(f"- {alt.get('source', 'Unknown').capitalize()}: {alt_price_str} ({alt.get('reason', 'Comparison')})")
+                    alt_price_str = f"${alt.get('price')}" if alt.get('price') is not None else "Price unknown"
+                    
+                    # Determine if this alternative is better based on price or non-price factors
+                    if "better rating" in alt.get('reason', '').lower() or "availability" in alt.get('reason', '').lower():
+                        comparison_type = "(non-price factors)"
+                    else:
+                        comparison_type = "(price comparison)" if alt.get('price') is not None else ""
+                        
+                    formatted.append(f"- {alt.get('source', 'Unknown').capitalize()}: {alt_price_str} {comparison_type}")
+                    if alt.get('reason'):
+                        formatted.append(f"  * Reason: {alt.get('reason', 'Comparison')}")
                     
                     # Add additional holistic information if available
                     if alt.get('holistic_score'):
@@ -434,12 +458,33 @@ Important guidelines:
             # Only format if analysis was successful (corresponds to successful product scrape)
             if analysis: 
                 formatted.append(f"Deal Analysis for Product {i+1}:")
-                formatted.append(f"- Is it a good deal? {'Yes' if analysis.get('is_good_deal', False) else 'No'}")
+                
+                # Handle the case where price is missing but verdict is based on other factors
+                if analysis.get('price') is None:
+                    formatted.append(f"- Price data: Not available")
+                    formatted.append(f"- Assessment based on: Non-price factors (ratings, availability, etc.)")
+                else:
+                    formatted.append(f"- Price data: Available")
+                
+                # Format the deal verdict with appropriate wording
+                verdict = "Unknown"
+                if analysis.get('verdict'):
+                    verdict = analysis.get('verdict')
+                elif analysis.get('is_good_deal') is not None:
+                    verdict = 'Yes' if analysis.get('is_good_deal', False) else 'No'
+                    
+                formatted.append(f"- Verdict: {verdict}")
                 formatted.append(f"- Confidence: {analysis.get('confidence', 'Unknown')}")
                 
                 # Add holistic score if available
                 if analysis.get('holistic_score'):
                     formatted.append(f"- Holistic Score: {analysis.get('holistic_score')}/100")
+                    
+                    # Add explanation of the holistic score
+                    if analysis.get('price') is None:
+                        formatted.append("  (Score based on ratings, availability, and retailer reputation)")
+                    else:
+                        formatted.append("  (Score based on price, ratings, availability, and retailer reputation)")
                 
                 if analysis.get("reasons"):
                     formatted.append("- Summary:")
