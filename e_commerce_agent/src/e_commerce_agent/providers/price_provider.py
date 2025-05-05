@@ -792,6 +792,8 @@ class PriceProvider:
             confidence = "medium"
         elif has_price:
             confidence = "low"
+        elif has_rating or has_availability:  # MODIFIED: Even without price, we can have some confidence if we have other data
+            confidence = "medium-low"
         else:
             confidence = "very low"
             
@@ -819,42 +821,102 @@ class PriceProvider:
         else:
             reasons.append("- Availability: Information not available")
         
-        # Calculate holistic score only if we have enough data
+        # Calculate holistic score whether we have price or not
         holistic_score = 0
+        
+        # MODIFIED: Changed to calculate score even without price
+        # Rating score (0-50 points when price is missing, 0-30 when price exists)
+        rating_score = (rating / 5.0) * (50 if not has_price else 30) if has_rating else 0
+        
+        # Availability score (0-20 points when price is missing, 0-10 when price exists)
+        availability_score = 0
+        if has_availability:
+            if "in stock" in availability.lower():
+                availability_score = 20 if not has_price else 10
+            elif "available" in availability.lower():
+                availability_score = 15 if not has_price else 8
+            elif "limited" in availability.lower():
+                availability_score = 10 if not has_price else 5
+        
+        # Brand reputation based on source (0-30 points when price is missing, 0-10 when price exists)
+        brand_score = 0
+        if source.lower() in ["amazon", "target", "bestbuy"]:
+            brand_score = 30 if not has_price else 10  # Major retailers
+        elif source.lower() in ["walmart", "ebay"]:
+            brand_score = 25 if not has_price else 8  # Established retailers
+        else:
+            brand_score = 15 if not has_price else 5  # Unknown retailers
+            
         if has_price:
-            # Without knowing what's "good" for this product type,
-            # we'll use a neutral score just based on what we know
+            # When we have price, use normal scoring system
             price_score = 25  # Neutral starting point
-            
-            # Rating score (0-30 points)
-            rating_score = (rating / 5.0) * 30 if has_rating else 0
-            
-            # Availability score (0-10 points)
-            availability_score = 10 if has_availability and "in stock" in availability.lower() else 0
-            
-            # Brand reputation based on source (0-10 points)
-            brand_score = 0
-            if source.lower() in ["amazon", "target", "bestbuy"]:
-                brand_score = 10  # Major retailers
-            elif source.lower() in ["ebay"]:
-                brand_score = 8  # Established retailers
-            else:
-                brand_score = 5  # Unknown retailers
-            
-            # Calculate total score
             holistic_score = price_score + rating_score + availability_score + brand_score
-            reasons.append(f"- Overall Value Score: {round(holistic_score, 1)}/100")
+        else:
+            # When price is missing, use alternative scoring system
+            # Add scores from non-price factors with higher weights
+            holistic_score = rating_score + availability_score + brand_score
+            
+        reasons.append(f"- Overall Value Score: {round(holistic_score, 1)}/100")
+        
+        # Price-based comparison for alternatives
+        better_alternatives_price = []
+        
+        # Non-price based comparison for alternatives (ADDED)
+        better_alternatives_nonprice = []
         
         # Analyze alternatives
         if alternatives:
-            better_alternatives = [
-                alt for alt in alternatives 
-                if alt.get("is_better_deal", False) and alt.get("price") is not None
-            ]
+            # MODIFIED: Separate price and non-price comparisons
+            if has_price:
+                # For alternatives with price data, compare prices
+                better_alternatives_price = [
+                    alt for alt in alternatives 
+                    if alt.get("is_better_deal", False) and alt.get("price") is not None
+                ]
+                
+            # For all alternatives, check for better ratings/availability regardless of price
+            for alt in alternatives:
+                alt_rating = 0
+                alt_has_rating = False
+                
+                # Extract rating if available
+                if alt.get("rating"):
+                    try:
+                        rating_match = re.search(r'(\d+(\.\d+)?)', alt.get("rating", ""))
+                        if rating_match:
+                            alt_rating = float(rating_match.group(1))
+                            alt_has_rating = True
+                    except Exception:
+                        pass
+                
+                # Check if alternative has better non-price attributes
+                if (alt_has_rating and has_rating and alt_rating > rating) or \
+                   (alt_has_rating and not has_rating) or \
+                   (alt.get("availability") and "in stock" in alt.get("availability").lower() and 
+                    (not has_availability or "in stock" not in availability.lower())):
+                    
+                    # Add a reason for why this is better
+                    alt_reason = []
+                    if alt_has_rating and has_rating and alt_rating > rating:
+                        alt_reason.append(f"Better rating ({alt_rating} vs {rating})")
+                    elif alt_has_rating and not has_rating:
+                        alt_reason.append(f"Has rating ({alt_rating}) while original doesn't")
+                        
+                    if alt.get("availability") and "in stock" in alt.get("availability").lower():
+                        if not has_availability:
+                            alt_reason.append("Has availability information while original doesn't")
+                        elif "in stock" not in availability.lower():
+                            alt_reason.append("Better availability")
+                    
+                    # Add to better non-price alternatives
+                    alt_copy = alt.copy()
+                    alt_copy["reason"] = ", ".join(alt_reason)
+                    better_alternatives_nonprice.append(alt_copy)
             
-            if better_alternatives:
-                reasons.append(f"\nFound {len(better_alternatives)} potentially better options:")
-                for alt in better_alternatives[:2]:  # Show top 2
+            # Add results to reasons
+            if better_alternatives_price:
+                reasons.append(f"\nFound {len(better_alternatives_price)} potentially better options (price-based):")
+                for alt in better_alternatives_price[:2]:  # Show top 2
                     alt_source = alt.get("source", "").capitalize()
                     alt_price = f"${alt.get('price')}" if alt.get("price") is not None else "Price unknown"
                     alt_reason = alt.get("reason", "")
@@ -866,7 +928,25 @@ class PriceProvider:
                     if alt.get("availability"):
                         reasons.append(f"  • Availability: {alt.get('availability')}")
                     reasons.append(f"  • Key advantages: {alt_reason}")
-            else:
+            
+            # Add non-price alternatives (ADDED)
+            if not has_price and better_alternatives_nonprice:
+                reasons.append(f"\nFound {len(better_alternatives_nonprice)} potentially better options (based on ratings/availability):")
+                for alt in better_alternatives_nonprice[:2]:  # Show top 2
+                    alt_source = alt.get("source", "").capitalize()
+                    alt_price = f"${alt.get('price')}" if alt.get("price") is not None else "Price unknown"
+                    alt_reason = alt.get("reason", "")
+                    
+                    reasons.append(f"\n- {alt_source} alternative:")
+                    if alt.get("price") is not None:
+                        reasons.append(f"  • Price: {alt_price}")
+                    if alt.get("rating"):
+                        reasons.append(f"  • Rating: {alt.get('rating')}")
+                    if alt.get("availability"):
+                        reasons.append(f"  • Availability: {alt.get('availability')}")
+                    reasons.append(f"  • Key advantages: {alt_reason}")
+            
+            if not better_alternatives_price and not better_alternatives_nonprice:
                 reasons.append("\nAlternatives found but none offered better overall value.")
         else:
             reasons.append("\nNo alternatives found for comparison.")
@@ -874,8 +954,21 @@ class PriceProvider:
         # Overall assessment based on data quality
         is_good_deal = None  # Default to unknown
         if not has_price:
-            reasons.append("\nOverall Assessment: CANNOT DETERMINE if this is a good deal without price information.")
-            verdict = "CANNOT DETERMINE ⚠️"
+            # MODIFIED: Handle missing price but with other data
+            if has_rating or has_availability:
+                # When we have rating or availability but no price
+                if better_alternatives_nonprice:
+                    reasons.append("\nOverall Assessment: Based on non-price factors (rating, availability), better alternatives are available.")
+                    verdict = "BETTER ALTERNATIVES AVAILABLE ⚠️"
+                    is_good_deal = False
+                else:
+                    reasons.append("\nOverall Assessment: Cannot determine if this is the best price, but product has good ratings/availability.")
+                    verdict = "GOOD RATINGS/AVAILABILITY ℹ️"
+                    is_good_deal = None
+            else:
+                reasons.append("\nOverall Assessment: CANNOT DETERMINE if this is a good deal without price information.")
+                verdict = "CANNOT DETERMINE ⚠️"
+                is_good_deal = None
         elif len(alternatives) == 0:
             if not has_rating and not has_availability:
                 reasons.append("\nOverall Assessment: CANNOT DETERMINE if this is a good deal with limited information and no alternatives.")
@@ -885,7 +978,7 @@ class PriceProvider:
                 reasons.append("\nOverall Assessment: This seems reasonable, but we couldn't find alternatives for a thorough comparison.")
                 verdict = "LIKELY REASONABLE ℹ️"
                 is_good_deal = True  # Slight positive bias when we have some data but no alternatives
-        elif better_alternatives:
+        elif better_alternatives_price:
             reasons.append("\nOverall Assessment: Consider the alternatives above which may offer better overall value.")
             verdict = "BETTER ALTERNATIVES AVAILABLE ⚠️"
             is_good_deal = False  # Not a good deal if better alternatives exist
@@ -895,7 +988,7 @@ class PriceProvider:
             is_good_deal = True  # Good deal if no better alternatives
         
         # Add confidence disclaimer
-        if confidence in ["very low", "low"]:
+        if confidence in ["very low", "low", "medium-low"]:
             reasons.append(f"\nNote: This assessment has {confidence} confidence due to limited data or lack of alternatives for comparison.")
         
         # Add retailers compared
@@ -908,7 +1001,7 @@ class PriceProvider:
         
         # Add assessment factors
         reasons.append("\nNote: This comparison considers multiple factors for a holistic evaluation:")
-        reasons.append("• Price and value for money")
+        reasons.append("• Price and value for money" + (" (when available)" if not has_price else ""))
         reasons.append("• Customer ratings and review volume")
         reasons.append("• Product availability and shipping options")
         reasons.append("• Retailer reputation and reliability")
