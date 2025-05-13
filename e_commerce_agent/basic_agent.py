@@ -3,7 +3,7 @@ import re
 import json
 from urllib.parse import urlparse
 import urllib.request
-import random
+import secrets
 
 class SimpleECommercePriceComparison:
     """
@@ -60,8 +60,8 @@ class SimpleECommercePriceComparison:
         product_types = ["Headphones", "Laptop", "Smartphone", "Tablet", "Smart Watch"]
         brands = ["Sony", "Apple", "Samsung", "Dell", "Bose"]
         
-        product_type = random.choice(product_types)
-        brand = random.choice(brands)
+        product_type = secrets.choice(product_types)
+        brand = secrets.choice(brands)
         title = f"{brand} {product_type} - Premium Model"
         
         return {
@@ -71,7 +71,7 @@ class SimpleECommercePriceComparison:
             "title": title,
             "price": price,
             "price_text": f"${price}",
-            "rating": f"{random.randint(3, 5)}.{random.randint(0, 9)} stars"
+            "rating": f"{secrets.SystemRandom().randint(3, 5)}.{secrets.SystemRandom().randint(0, 9)} stars"
         }
     
     def _generate_alternatives(self, product_details):
