@@ -13,6 +13,7 @@ import re
 import logging
 import subprocess
 from pathlib import Path
+from security import safe_command
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -303,7 +304,7 @@ def run_agent():
     cmd = [sys.executable, "-m", "src.e_commerce_agent.e_commerce_agent"]
     
     try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = safe_command.run(subprocess.Popen, cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         # Print output in real-time
         print("="*80)

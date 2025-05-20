@@ -13,6 +13,7 @@ import subprocess
 import argparse
 import shutil
 from pathlib import Path
+from security import safe_command
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -297,7 +298,7 @@ except Exception as e:
         
         # Run the command
         logger.info(f"Running command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, check=True)
+        result = safe_command.run(subprocess.run, cmd, check=True)
         
         # Clean up the preload file
         if preload_file.exists():

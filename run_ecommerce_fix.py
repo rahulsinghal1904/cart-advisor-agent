@@ -15,6 +15,7 @@ import logging
 import importlib
 import subprocess
 from pathlib import Path
+from security import safe_command
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -541,7 +542,7 @@ def run_e_commerce_agent():
     # Run the command
     try:
         logger.info(f"Running command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, check=True)
+        result = safe_command.run(subprocess.run, cmd, check=True)
         logger.info(f"E-commerce agent exited with code: {result.returncode}")
         return result.returncode == 0
     except subprocess.CalledProcessError as e:
