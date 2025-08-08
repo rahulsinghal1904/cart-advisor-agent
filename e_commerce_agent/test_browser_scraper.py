@@ -1,11 +1,11 @@
 import asyncio
 import logging
-import random
 import re
 import json
 import time
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
+import secrets
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ async def scrape_with_advanced_browser(url: str):
     ]
     
     # Use a random user agent
-    user_agent = random.choice(user_agents)
+    user_agent = secrets.choice(user_agents)
     
     async with async_playwright() as p:
         # Launch a persistent context to maintain cookies between sessions
@@ -236,13 +236,13 @@ async def scrape_with_advanced_browser(url: str):
             
             # Perform some human-like interactions
             # Move mouse randomly
-            await page.mouse.move(random.randint(100, 500), random.randint(100, 500))
-            await page.wait_for_timeout(random.randint(300, 700))
+            await page.mouse.move(secrets.SystemRandom().randint(100, 500), secrets.SystemRandom().randint(100, 500))
+            await page.wait_for_timeout(secrets.SystemRandom().randint(300, 700))
             
             # Scroll down to trigger lazy loading
             for i in range(3):
-                await page.evaluate(f"window.scrollBy(0, {random.randint(300, 600)})")
-                await page.wait_for_timeout(random.randint(500, 1000))
+                await page.evaluate(f"window.scrollBy(0, {secrets.SystemRandom().randint(300, 600)})")
+                await page.wait_for_timeout(secrets.SystemRandom().randint(500, 1000))
             
             # Check if we've been redirected to a bot detection page
             current_url = page.url

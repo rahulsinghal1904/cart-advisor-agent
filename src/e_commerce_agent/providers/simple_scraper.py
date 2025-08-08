@@ -7,11 +7,11 @@ import json
 import logging
 import httpx
 import asyncio
-import random
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
 from typing import Dict, List, Any, Optional
 from playwright.async_api import async_playwright
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class SimpleScraper:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
         ]
         self.headers = {
-            "User-Agent": random.choice(self.user_agents),
+            "User-Agent": secrets.choice(self.user_agents),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "sec-ch-ua-platform": '"Windows"',
@@ -115,7 +115,7 @@ class TargetScraper(SimpleScraper):
                 
                 # Create context with realistic browser settings
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800},
                     device_scale_factor=1,
                     locale="en-US"
@@ -297,7 +297,7 @@ class TargetScraper(SimpleScraper):
             logger.info("Attempting HTTP-based extraction for Target")
             async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
                 headers = {
-                    "User-Agent": random.choice(self.user_agents),
+                    "User-Agent": secrets.choice(self.user_agents),
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.9",
                     "Cache-Control": "no-cache"
@@ -430,7 +430,7 @@ class BestBuyScraper(SimpleScraper):
                 
                 # Create context with realistic browser settings
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800},
                     device_scale_factor=1,
                     locale="en-US"
@@ -675,7 +675,7 @@ class BestBuyScraper(SimpleScraper):
             logger.info("Attempting HTTP-based extraction for Best Buy")
             async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
                 headers = {
-                    "User-Agent": random.choice(self.user_agents),
+                    "User-Agent": secrets.choice(self.user_agents),
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.9",
                     "Cache-Control": "no-cache"

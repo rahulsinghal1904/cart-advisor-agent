@@ -4,11 +4,11 @@ import logging
 import httpx
 import asyncio
 import time
-import random
 from typing import Dict, List, Optional, Any, Tuple
 from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import secrets
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -222,7 +222,7 @@ class PriceAPIFetcher:
         """Extract data directly from Walmart page JSON data."""
         try:
             async with httpx.AsyncClient() as client:
-                user_agent = random.choice(self.user_agents)
+                user_agent = secrets.choice(self.user_agents)
                 headers = {
                     "User-Agent": user_agent,
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -339,7 +339,7 @@ class PriceAPIFetcher:
         """Extract data directly from Best Buy page JSON data."""
         try:
             async with httpx.AsyncClient() as client:
-                user_agent = random.choice(self.user_agents)
+                user_agent = secrets.choice(self.user_agents)
                 headers = {
                     "User-Agent": user_agent,
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -474,7 +474,7 @@ class PriceAPIFetcher:
         """
         try:
             async with httpx.AsyncClient() as client:
-                user_agent = random.choice(self.user_agents)
+                user_agent = secrets.choice(self.user_agents)
                 headers = {
                     "User-Agent": user_agent,
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
