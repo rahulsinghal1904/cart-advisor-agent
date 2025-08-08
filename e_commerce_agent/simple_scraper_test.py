@@ -1,9 +1,9 @@
 import asyncio
 import logging
 from playwright.async_api import async_playwright
-import random
 import re
 import time
+import secrets
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ async def scrape_walmart(url: str):
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     ]
     
-    user_agent = random.choice(user_agents)
+    user_agent = secrets.choice(user_agents)
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -100,7 +100,7 @@ async def scrape_bestbuy(url: str):
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     ]
     
-    user_agent = random.choice(user_agents)
+    user_agent = secrets.choice(user_agents)
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)

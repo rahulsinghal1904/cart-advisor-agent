@@ -6,7 +6,6 @@ import base64
 import io
 import os
 import time
-import random
 import tempfile
 import asyncio
 from PIL import Image
@@ -15,6 +14,7 @@ from urllib.parse import urlparse, parse_qs
 from typing import Dict, List, Optional, Any, Tuple, BinaryIO
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 from dotenv import load_dotenv
+import secrets
 
 # Make pytesseract truly optional
 TESSERACT_AVAILABLE = False
@@ -242,8 +242,8 @@ class StealthScraper:
             Dict containing product data
         """
         # Determine if we should use mobile or desktop user agent
-        use_mobile = random.random() < 0.3  # 30% chance of using mobile
-        user_agent = random.choice(self.mobile_agents if use_mobile else self.desktop_agents)
+        use_mobile = secrets.SystemRandom().random() < 0.3  # 30% chance of using mobile
+        user_agent = secrets.choice(self.mobile_agents if use_mobile else self.desktop_agents)
         
         # Create unique browser profile for this session
         browser_data_dir = os.path.join(self.temp_dir, "user_data", f"session_{int(time.time())}")
@@ -282,9 +282,9 @@ class StealthScraper:
                     context = await browser.new_context(
                         user_agent=user_agent,
                         viewport={'width': viewport_width, 'height': viewport_height},
-                        device_scale_factor=random.choice([1, 2]) if not use_mobile else 3,
-                        locale=random.choice(['en-US', 'en-GB']),
-                        timezone_id=random.choice(['America/New_York', 'America/Los_Angeles', 'Europe/London']),
+                        device_scale_factor=secrets.choice([1, 2]) if not use_mobile else 3,
+                        locale=secrets.choice(['en-US', 'en-GB']),
+                        timezone_id=secrets.choice(['America/New_York', 'America/Los_Angeles', 'Europe/London']),
                         geolocation={'latitude': 40.7128, 'longitude': -74.0060},
                         permissions=['geolocation'],
                         is_mobile=use_mobile
@@ -337,7 +337,7 @@ class StealthScraper:
                         logger.info(f"Loading page: {url}")
                         
                         # Random delay before navigation
-                        await page.wait_for_timeout(random.randint(1000, 3000))
+                        await page.wait_for_timeout(secrets.SystemRandom().randint(1000, 3000))
                         
                         # Navigate with timeout
                         response = await page.goto(url, wait_until='domcontentloaded', timeout=60000)
@@ -400,8 +400,8 @@ class StealthScraper:
         
         # Random mouse movements
         await page.mouse.move(
-            random.randint(100, 500),
-            random.randint(100, 500)
+            secrets.SystemRandom().randint(100, 500),
+            secrets.SystemRandom().randint(100, 500)
         )
         
     async def _is_blocked(self, page: Page) -> bool:
@@ -430,26 +430,26 @@ class StealthScraper:
     async def _simulate_human_behavior(self, page: Page):
         """Simulate realistic human browsing behavior."""
         # Random initial wait
-        await page.wait_for_timeout(random.randint(1000, 3000))
+        await page.wait_for_timeout(secrets.SystemRandom().randint(1000, 3000))
         
         # Random scroll behavior
-        scroll_times = random.randint(2, 5)
+        scroll_times = secrets.SystemRandom().randint(2, 5)
         for i in range(scroll_times):
-            await page.evaluate(f"window.scrollBy(0, {random.randint(300, 700)})")
-            await page.wait_for_timeout(random.randint(500, 1500))
+            await page.evaluate(f"window.scrollBy(0, {secrets.SystemRandom().randint(300, 700)})")
+            await page.wait_for_timeout(secrets.SystemRandom().randint(500, 1500))
         
         # Move mouse to random positions
-        for _ in range(random.randint(2, 4)):
+        for _ in range(secrets.SystemRandom().randint(2, 4)):
             await page.mouse.move(
-                random.randint(100, 800),
-                random.randint(100, 600)
+                secrets.SystemRandom().randint(100, 800),
+                secrets.SystemRandom().randint(100, 600)
             )
-            await page.wait_for_timeout(random.randint(300, 700))
+            await page.wait_for_timeout(secrets.SystemRandom().randint(300, 700))
         
         # Scroll back up partially
-        if random.random() < 0.7:  # 70% chance
-            await page.evaluate(f"window.scrollBy(0, {random.randint(-400, -100)})")
-            await page.wait_for_timeout(random.randint(500, 1000))
+        if secrets.SystemRandom().random() < 0.7:  # 70% chance
+            await page.evaluate(f"window.scrollBy(0, {secrets.SystemRandom().randint(-400, -100)})")
+            await page.wait_for_timeout(secrets.SystemRandom().randint(500, 1000))
     
     async def _extract_product_data(self, page: Page, url: str) -> Dict[str, Any]:
         """
@@ -1129,7 +1129,7 @@ class PriceScraper:
         self.desktop_agents = self.user_agents
         
         self.headers = {
-            "User-Agent": random.choice(self.user_agents),
+            "User-Agent": secrets.choice(self.user_agents),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Encoding": "gzip, deflate, br",
@@ -1803,7 +1803,7 @@ class PriceScraper:
                 browser = await p.chromium.launch(headless=True)
                 
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800}
                 )
                 
@@ -2200,7 +2200,7 @@ class PriceScraper:
         price = None
         if original_price and isinstance(original_price, (int, float)):
             # Slightly different price (±10%)
-            variation = random.uniform(0.9, 1.1)
+            variation = secrets.SystemRandom().uniform(0.9, 1.1)
             price = round(original_price * variation, 2)
         
         # Retailer-specific URLs for search results
@@ -3336,7 +3336,7 @@ class PriceScraper:
                 browser = await p.chromium.launch(headless=True)
                 
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800}
                 )
                 
@@ -3561,7 +3561,7 @@ class PriceScraper:
             
             # Create a more realistic browser context
             context = await browser.new_context(
-                user_agent=random.choice(self.user_agents),
+                user_agent=secrets.choice(self.user_agents),
                 viewport={"width": 1280, "height": 800},
                 locale="en-US"
             )
@@ -3576,7 +3576,7 @@ class PriceScraper:
             
             try:
                 # Random delay before navigation to appear more human-like
-                await page.wait_for_timeout(random.randint(800, 2000))
+                await page.wait_for_timeout(secrets.SystemRandom().randint(800, 2000))
                 
                 # Navigate to search page
                 await page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
@@ -3784,7 +3784,7 @@ class PriceScraper:
                 
                 # Use a stealthy context for better success rate
                 context = await browser.new_context(
-                    user_agent=random.choice(self.desktop_agents),
+                    user_agent=secrets.choice(self.desktop_agents),
                     viewport={"width": 1280, "height": 800}
                 )
                 
@@ -3921,7 +3921,7 @@ class PriceScraper:
                 browser = await p.chromium.launch(headless=True)
                 
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800}
                 )
                 
@@ -4135,7 +4135,7 @@ class PriceScraper:
                 browser = await p.chromium.launch(headless=True, timeout=10000)
                 
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800}
                 )
                 
@@ -4311,7 +4311,7 @@ class PriceScraper:
                 browser = await p.chromium.launch(headless=True)
                 
                 context = await browser.new_context(
-                    user_agent=random.choice(self.user_agents),
+                    user_agent=secrets.choice(self.user_agents),
                     viewport={"width": 1280, "height": 800}
                 )
                 
@@ -4599,7 +4599,7 @@ class PriceScraper:
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
                 headers = {
-                    "User-Agent": random.choice(self.user_agents),
+                    "User-Agent": secrets.choice(self.user_agents),
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 }
                 
@@ -4842,28 +4842,28 @@ class PriceScraper:
                     # Create realistic price variations
                     if i == 0:
                         # First alternative is 5-10% cheaper
-                        discount = random.uniform(0.90, 0.95)
+                        discount = secrets.SystemRandom().uniform(0.90, 0.95)
                         alt_price = round(price * discount, 2)
                         price_text = f"${alt_price}"
                         is_better_deal = True
                         reason = f"{int((1-discount)*100)}% cheaper than original"
                     elif i == 1:
                         # Second alternative is 3-8% more expensive
-                        markup = random.uniform(1.03, 1.08)
+                        markup = secrets.SystemRandom().uniform(1.03, 1.08)
                         alt_price = round(price * markup, 2)
                         price_text = f"${alt_price}"
                         is_better_deal = False
                         reason = f"{int((markup-1)*100)}% more expensive than original"
                     else:
                         # Third alternative is about the same price ±2%
-                        variation = random.uniform(0.98, 1.02)
+                        variation = secrets.SystemRandom().uniform(0.98, 1.02)
                         alt_price = round(price * variation, 2)
                         price_text = f"${alt_price}"
                         is_better_deal = variation < 1.0
                         reason = "Similar price to original"
                 
                 # Create different ratings
-                rating_value = min(5.0, max(3.5, random.uniform(4.3, 4.9)))
+                rating_value = min(5.0, max(3.5, secrets.SystemRandom().uniform(4.3, 4.9)))
                 rating = f"{rating_value:.1f} out of 5 stars"
                 
                 # Calculate holistic score based on the synthetic values
